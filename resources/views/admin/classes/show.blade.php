@@ -1,0 +1,8 @@
+@extends('layouts.app', ['title' => 'Detail Kelas'])
+@section('content')
+@include('partials.page-header', ['eyebrow' => 'Admin', 'title' => $praktikumClass->name, 'description' => $praktikumClass->course?->name.' · '.$praktikumClass->schedule])
+<div class="grid gap-6 lg:grid-cols-3">
+<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2"><div class="mb-5 flex justify-end gap-3"><a href="{{ route('admin.kelas.edit', $praktikumClass) }}" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Edit</a>@include('partials.delete-button', ['action' => route('admin.kelas.destroy', $praktikumClass)])</div><h2 class="font-bold">Mahasiswa</h2><div class="mt-4 grid gap-3 md:grid-cols-2">@forelse($praktikumClass->students as $student)<div class="rounded-2xl bg-slate-50 p-4"><p class="font-semibold">{{ $student->name }}</p><p class="text-sm text-slate-500">{{ $student->nim_nip }} · {{ $student->email }}</p></div>@empty @include('partials.empty-state', ['title' => 'Belum ada mahasiswa']) @endforelse</div></section>
+<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 class="font-bold">Ringkasan</h2><dl class="mt-4 space-y-3 text-sm"><div><dt class="text-slate-500">Asisten</dt><dd class="font-semibold">{{ $praktikumClass->assistant?->name ?? '-' }}</dd></div><div><dt class="text-slate-500">Materi</dt><dd class="font-semibold">{{ $praktikumClass->materials->count() }}</dd></div><div><dt class="text-slate-500">Tugas</dt><dd class="font-semibold">{{ $praktikumClass->assignments->count() }}</dd></div></dl></section>
+</div>
+@endsection

@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\PraktikumClass;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Spatie\Permission\Models\Role;
+
+class UserController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $users = User::query()
+            ->with('kelas.course')
+            ->when($request->filled('role'), fn ($query) => $query->role($request->role))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->string('search');
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('nim_nip', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('admin.users.index', compact('users'));
+    }
+
+    public function create(): View
+    {
+        return view('admin.users.create', [
+            'roles' => Role::query()->orderBy('name')->pluck('name'),
+            'classes' => PraktikumClass::with('course')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'nim_nip' => ['nullable', 'string', 'max:50', 'unique:users,nim_nip'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role' => ['required', Rule::in(['admin', 'asisten', 'mahasiswa'])],
+            'kelas_id' => ['nullable', 'exists:classes,id'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $data = Arr::except($validated, ['role', 'password']);
+        $data['password'] = Hash::make($validated['password']);
+        $data['is_active'] = $request->boolean('is_active');
+        $data['email_verified_at'] = now();
+
+        if ($validated['role'] !== 'mahasiswa') {
+            $data['kelas_id'] = null;
+        }
+
+        if (Schema::hasColumn('users', 'role')) {
+            $data['role'] = $validated['role'];
+        }
+
+        $user = User::create($data);
+        $user->syncRoles([$validated['role']]);
+        $this->syncStudentClass($user, $validated['role'], $validated['kelas_id'] ?? null);
+
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil ditambahkan.');
+    }
+
+    public function show(User $user): View
+    {
+        $user->load(['kelas.course', 'kelasDiikuti.course', 'kelasDiasisteni.course', 'roles']);
+
+        return view('admin.users.show', compact('user'));
+    }
+
+    public function edit(User $user): View
+    {
+        $user->load('roles');
+
+        return view('admin.users.edit', [
+            'user' => $user,
+            'roles' => Role::query()->orderBy('name')->pluck('name'),
+            'classes' => PraktikumClass::with('course')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'nim_nip' => ['nullable', 'string', 'max:50', Rule::unique('users', 'nim_nip')->ignore($user->id)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'role' => ['required', Rule::in(['admin', 'asisten', 'mahasiswa'])],
+            'kelas_id' => ['nullable', 'exists:classes,id'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $data = Arr::except($validated, ['role', 'password']);
+        $data['is_active'] = $request->boolean('is_active');
+
+        if (! empty($validated['password'])) {
+            $data['password'] = Hash::make($validated['password']);
+        }
+
+        if ($validated['role'] !== 'mahasiswa') {
+            $data['kelas_id'] = null;
+        }
+
+        if (Schema::hasColumn('users', 'role')) {
+            $data['role'] = $validated['role'];
+        }
+
+        $user->update($data);
+        $user->syncRoles([$validated['role']]);
+        $this->syncStudentClass($user, $validated['role'], $validated['kelas_id'] ?? null);
+
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil diperbarui.');
+    }
+
+    public function destroy(User $user): RedirectResponse
+    {
+        abort_if($user->is(auth()->user()), 422, 'Akun sendiri tidak boleh dihapus.');
+
+        $user->delete();
+
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil dihapus.');
+    }
+
+    private function syncStudentClass(User $user, string $role, ?int $classId): void
+    {
+        if ($role !== 'mahasiswa' || ! $classId) {
+            $user->kelasDiikuti()->detach();
+            $user->updateQuietly(['kelas_id' => null]);
+            return;
+        }
+
+        $user->kelasDiikuti()->sync([$classId]);
+        $user->updateQuietly(['kelas_id' => $classId]);
+    }
+}

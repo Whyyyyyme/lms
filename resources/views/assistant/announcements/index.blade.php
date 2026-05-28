@@ -1,0 +1,5 @@
+@extends('layouts.app', ['title' => 'Pengumuman'])
+@section('content')
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Pengumuman', 'action' => '<a href="'.route('assistant.pengumuman.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Buat Pengumuman</a>'])
+<div class="space-y-4">@forelse($announcements as $announcement)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex justify-between gap-4"><div><h2 class="font-bold">{{ $announcement->title }}</h2><p class="text-sm text-slate-500">{{ $announcement->kelas?->course?->name }} - {{ $announcement->kelas?->name }}</p><p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $announcement->content }}</p></div><div class="flex gap-3"><a href="{{ route('assistant.pengumuman.show', $announcement) }}" class="font-semibold text-indigo-600">Detail</a><a href="{{ route('assistant.pengumuman.edit', $announcement) }}" class="font-semibold text-slate-600">Edit</a></div></div></article>@empty @include('partials.empty-state') @endforelse</div><div class="mt-5">{{ $announcements->links() }}</div>
+@endsection

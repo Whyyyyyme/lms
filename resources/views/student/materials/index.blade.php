@@ -1,0 +1,5 @@
+@extends('layouts.app', ['title' => 'Materi Praktikum'])
+@section('content')
+@include('partials.page-header', ['eyebrow' => 'Mahasiswa', 'title' => 'Materi Praktikum', 'description' => 'Materi yang sudah dipublikasikan oleh asisten.'])
+<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">@forelse($materials as $material)<a href="{{ route('student.materials.show', $material) }}" class="rounded-3xl border bg-white p-5 shadow-sm hover:bg-indigo-50"><span class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">{{ strtoupper($material->type) }}</span><h2 class="mt-4 font-bold text-slate-950">{{ $material->title }}</h2><p class="mt-1 text-sm text-slate-500">{{ $material->kelas?->course?->name }} - {{ $material->kelas?->name }}</p><p class="mt-3 line-clamp-3 text-sm text-slate-600">{{ $material->description }}</p></a>@empty @include('partials.empty-state', ['title' => 'Belum ada materi']) @endforelse</div><div class="mt-5">{{ $materials->links() }}</div>
+@endsection

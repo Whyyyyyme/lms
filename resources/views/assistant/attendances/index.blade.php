@@ -1,0 +1,5 @@
+@extends('layouts.app', ['title' => 'Absensi Praktikum'])
+@section('content')
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Absensi Praktikum', 'action' => '<a href="'.route('assistant.attendances.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Buat Sesi</a>'])
+<div class="space-y-4">@forelse($attendances as $attendance)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex flex-col justify-between gap-3 md:flex-row"><div><h2 class="font-bold">{{ $attendance->kelas?->course?->name }} - {{ $attendance->kelas?->name }}</h2><p class="text-sm text-slate-500">{{ $attendance->session_date?->format('d M Y') }} · {{ $attendance->records_count }} record</p></div><div class="flex items-center gap-3">@include('partials.badge', ['slot' => $attendance->is_open ? 'aktif' : 'nonaktif'])<a href="{{ route('assistant.attendances.show', $attendance) }}" class="font-semibold text-indigo-600">Kelola</a></div></div></article>@empty @include('partials.empty-state', ['title' => 'Belum ada sesi absensi']) @endforelse</div><div class="mt-5">{{ $attendances->links() }}</div>
+@endsection

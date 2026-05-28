@@ -1,0 +1,5 @@
+@extends('layouts.app', ['title' => 'Tugas Praktikum'])
+@section('content')
+@include('partials.page-header', ['eyebrow' => 'Mahasiswa', 'title' => 'Tugas Praktikum'])
+<div class="space-y-4">@forelse($assignments as $assignment)<a href="{{ route('student.assignments.show', $assignment) }}" class="block rounded-3xl border bg-white p-5 shadow-sm hover:bg-indigo-50"><div class="flex flex-col justify-between gap-3 md:flex-row"><div><h2 class="font-bold text-slate-950">{{ $assignment->title }}</h2><p class="text-sm text-slate-500">{{ $assignment->kelas?->course?->name }} - {{ $assignment->kelas?->name }}</p><p class="mt-2 text-sm text-slate-600">Deadline: {{ $assignment->deadline?->format('d M Y H:i') }}</p></div><span class="self-start rounded-full px-3 py-1 text-xs font-semibold {{ $assignment->submissions->isNotEmpty() ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $assignment->submissions->isNotEmpty() ? 'Sudah dikumpulkan' : 'Belum dikumpulkan' }}</span></div></a>@empty @include('partials.empty-state', ['title' => 'Belum ada tugas']) @endforelse</div><div class="mt-5">{{ $assignments->links() }}</div>
+@endsection

@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Http\Controllers\Mahasiswa;
+
+use App\Http\Controllers\Concerns\ResolvesClassAccess;
+use App\Http\Controllers\Controller;
+use App\Models\Assignment;
+use App\Models\Submission;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
+
+class AssignmentController extends Controller
+{
+    use ResolvesClassAccess;
+
+    public function index(): View
+    {
+        $assignments = Assignment::query()
+            ->with(['kelas.course', 'submissions' => fn ($query) => $query->where('student_id', auth()->id())])
+            ->whereIn('class_id', $this->studentClassIds())
+            ->orderBy('deadline')
+            ->paginate(10);
+
+        return view('student.assignments.index', compact('assignments'));
+    }
+
+    public function show(Assignment $assignment): View
+    {
+        abort_unless(in_array($assignment->class_id, $this->studentClassIds(), true), 403);
+
+        $assignment->load([
+            'kelas.course',
+            'creator',
+            'submissions' => fn ($query) => $query->where('student_id', auth()->id()),
+        ]);
+
+        $submission = $assignment->submissions->first();
+
+        return view('student.assignments.show', compact('assignment', 'submission'));
+    }
+
+    public function submit(Request $request, Assignment $assignment): RedirectResponse
+    {
+        abort_unless(in_array($assignment->class_id, $this->studentClassIds(), true), 403);
+        abort_if(now()->greaterThan($assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,zip,rar', 'max:20480'],
+        ]);
+
+        $oldSubmission = Submission::where('assignment_id', $assignment->id)
+            ->where('student_id', auth()->id())
+            ->first();
+
+        if ($oldSubmission?->file_path) {
+            Storage::disk('public')->delete($oldSubmission->file_path);
+        }
+
+        $filePath = $validated['file']->store('submissions', 'public');
+
+        Submission::updateOrCreate(
+            [
+                'assignment_id' => $assignment->id,
+                'student_id' => auth()->id(),
+            ],
+            [
+                'file_path' => $filePath,
+                'submitted_at' => now(),
+                'score' => null,
+                'feedback' => null,
+                'graded_at' => null,
+            ]
+        );
+
+        return back()->with('success', 'Tugas berhasil dikumpulkan.');
+    }
+
+    public function updateSubmission(Request $request, Submission $submission): RedirectResponse
+    {
+        abort_unless((int) $submission->student_id === auth()->id(), 403);
+        $submission->load('assignment');
+        abort_if(now()->greaterThan($submission->assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,zip,rar', 'max:20480'],
+        ]);
+
+        if ($submission->file_path) {
+            Storage::disk('public')->delete($submission->file_path);
+        }
+
+        $submission->update([
+            'file_path' => $validated['file']->store('submissions', 'public'),
+            'submitted_at' => now(),
+            'score' => null,
+            'feedback' => null,
+            'graded_at' => null,
+        ]);
+
+        return back()->with('success', 'Submission tugas berhasil diperbarui.');
+    }
+}
