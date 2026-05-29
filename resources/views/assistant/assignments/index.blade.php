@@ -1,5 +1,11 @@
-@extends('layouts.app', ['title' => 'Tugas Praktikum'])
+@extends('layouts.app')
+@section('title', 'Tugas')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Tugas Praktikum', 'action' => '<a href="'.route('assistant.tugas.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Buat Tugas</a>'])
-<div class="space-y-4">@forelse($assignments as $assignment)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex flex-col justify-between gap-3 md:flex-row"><div><h2 class="font-bold">{{ $assignment->title }}</h2><p class="text-sm text-slate-500">{{ $assignment->kelas?->course?->name }} - {{ $assignment->kelas?->name }}</p><p class="mt-2 text-sm text-slate-600">Deadline: {{ $assignment->deadline?->format('d M Y H:i') }} · {{ $assignment->submissions_count }} submission</p></div><div class="flex gap-3"><a href="{{ route('assistant.tugas.show', $assignment) }}" class="font-semibold text-indigo-600">Detail</a><a href="{{ route('assistant.tugas.edit', $assignment) }}" class="font-semibold text-slate-600">Edit</a></div></div></article>@empty @include('partials.empty-state', ['title' => 'Belum ada tugas']) @endforelse</div><div class="mt-5">{{ $assignments->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Tugas Praktikum', 'description' => 'Kelola tugas, deadline, dan lampiran instruksi.'])
+<div class="toolbar"><span></span><a href="{{ route('assistant.tugas.create') }}" class="btn btn-primary">+ Buat Tugas</a></div>
+<div class="table-card"><table><thead><tr><th>Judul</th><th>Kelas</th><th>Deadline</th><th>Nilai Maks</th><th>Submission</th><th>Aksi</th></tr></thead><tbody>
+@forelse($assignments as $assignment)
+<tr><td><strong>{{ $assignment->title }}</strong><br><small>{{ str($assignment->description)->limit(80) }}</small></td><td>{{ $assignment->kelas?->course?->name }} - {{ $assignment->kelas?->name }}</td><td>{{ optional($assignment->deadline)->format('d M Y H:i') }}</td><td>{{ $assignment->max_score }}</td><td>{{ $assignment->submissions_count ?? $assignment->submissions->count() }}</td><td class="actions-inline"><a class="btn btn-sm" href="{{ route('assistant.tugas.show', $assignment) }}">Detail</a><a class="btn btn-sm" href="{{ route('assistant.tugas.edit', $assignment) }}">Edit</a>@include('partials.delete-button', ['action' => route('assistant.tugas.destroy', $assignment)])</td></tr>
+@empty <tr><td colspan="6">Belum ada tugas.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $assignments->links() }}</div>
 @endsection

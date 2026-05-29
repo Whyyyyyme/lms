@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Course;
+use App\Models\StudySemester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,8 +16,9 @@ class CourseController extends Controller
     public function index(Request $request): View
     {
         $courses = Course::query()
-            ->with('academicYear')
+            ->with(['academicYear', 'studySemester'])
             ->withCount('classes')
+            ->when($request->filled('study_semester_id'), fn ($query) => $query->where('study_semester_id', $request->integer('study_semester_id')))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search');
                 $query->where('name', 'like', "%{$search}%")
@@ -26,20 +28,22 @@ class CourseController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.courses.index', compact('courses'));
+        return view('admin.courses.index', [
+            'courses' => $courses,
+            'studySemesters' => StudySemester::orderBy('level')->get(),
+        ]);
     }
 
     public function create(): View
     {
-        return view('admin.courses.create', [
-            'academicYears' => AcademicYear::orderByDesc('is_active')->latest()->get(),
-        ]);
+        return view('admin.courses.create', $this->formData());
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'academic_year_id' => ['required', 'exists:academic_years,id'],
+            'study_semester_id' => ['required', 'exists:study_semesters,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50', 'unique:courses,code'],
             'sks' => ['required', 'integer', 'min:1', 'max:6'],
@@ -54,23 +58,23 @@ class CourseController extends Controller
 
     public function show(Course $course): View
     {
-        $course->load(['academicYear', 'classes.assistant', 'classes.students']);
+        $course->load(['academicYear', 'studySemester', 'classes.assistant', 'classes.students']);
 
         return view('admin.courses.show', compact('course'));
     }
 
     public function edit(Course $course): View
     {
-        return view('admin.courses.edit', [
+        return view('admin.courses.edit', array_merge($this->formData(), [
             'course' => $course,
-            'academicYears' => AcademicYear::orderByDesc('is_active')->latest()->get(),
-        ]);
+        ]));
     }
 
     public function update(Request $request, Course $course): RedirectResponse
     {
         $validated = $request->validate([
             'academic_year_id' => ['required', 'exists:academic_years,id'],
+            'study_semester_id' => ['required', 'exists:study_semesters,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50', Rule::unique('courses', 'code')->ignore($course->id)],
             'sks' => ['required', 'integer', 'min:1', 'max:6'],
@@ -90,5 +94,13 @@ class CourseController extends Controller
         $course->delete();
 
         return redirect()->route('admin.matakuliah.index')->with('success', 'Matakuliah berhasil dihapus.');
+    }
+
+    private function formData(): array
+    {
+        return [
+            'academicYears' => AcademicYear::orderByDesc('is_active')->latest()->get(),
+            'studySemesters' => StudySemester::active()->orderBy('level')->get(),
+        ];
     }
 }

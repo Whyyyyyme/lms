@@ -1,6 +1,20 @@
-@extends('layouts.app', ['title' => 'Submission Mahasiswa'])
+@extends('layouts.app')
+@section('title', 'Submission Mahasiswa')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Submission Mahasiswa'])
-<form method="GET" class="mb-5 flex gap-3 rounded-3xl border bg-white p-4"><select name="status" class="rounded-2xl border-slate-300"><option value="">Semua status</option><option value="belum_dinilai" @selected(request('status') === 'belum_dinilai')>Belum dinilai</option><option value="sudah_dinilai" @selected(request('status') === 'sudah_dinilai')>Sudah dinilai</option></select><button class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Filter</button></form>
-<div class="overflow-hidden rounded-3xl border bg-white shadow-sm"><table class="min-w-full divide-y text-sm"><thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Mahasiswa</th><th class="px-5 py-3">Tugas</th><th class="px-5 py-3">Dikumpulkan</th><th class="px-5 py-3">Nilai</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y">@forelse($submissions as $submission)<tr><td class="px-5 py-4">{{ $submission->student?->name }}<br><span class="text-slate-500">{{ $submission->student?->nim_nip }}</span></td><td class="px-5 py-4">{{ $submission->assignment?->title }}<br><span class="text-slate-500">{{ $submission->assignment?->kelas?->name }}</span></td><td class="px-5 py-4">{{ $submission->submitted_at?->format('d M Y H:i') }}</td><td class="px-5 py-4">{{ $submission->score ?? 'Belum dinilai' }}</td><td class="px-5 py-4 text-right"><a href="{{ route('assistant.submissions.show', $submission) }}" class="font-semibold text-indigo-600">Nilai</a></td></tr>@empty<tr><td colspan="5" class="px-5 py-10">@include('partials.empty-state')</td></tr>@endforelse</tbody></table></div><div class="mt-5">{{ $submissions->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Submission Mahasiswa', 'description' => 'Lihat upload tugas mahasiswa dan input nilai/feedback.'])
+<div class="toolbar">
+    <form method="GET" class="actions-inline">
+        <select class="form-control" name="status" style="width:180px;">
+            <option value="">Semua status</option>
+            <option value="graded" @selected(request('status') === 'graded')>Sudah dinilai</option>
+            <option value="ungraded" @selected(request('status') === 'ungraded')>Belum dinilai</option>
+        </select>
+        <button class="btn">Filter</button>
+    </form>
+</div>
+<div class="table-card"><table><thead><tr><th>Mahasiswa</th><th>Tugas</th><th>Dikumpulkan</th><th>Nilai</th><th>Aksi</th></tr></thead><tbody>
+@forelse($submissions as $submission)
+<tr><td>{{ $submission->student?->name }}</td><td>{{ $submission->assignment?->title }}</td><td>{{ optional($submission->submitted_at)->format('d M Y H:i') }}</td><td>{{ $submission->score ?? 'Belum dinilai' }}</td><td><a class="btn btn-sm btn-primary" href="{{ route('assistant.submissions.show', $submission) }}">Nilai</a></td></tr>
+@empty <tr><td colspan="5">Belum ada submission.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $submissions->links() }}</div>
 @endsection

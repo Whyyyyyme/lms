@@ -1,5 +1,11 @@
-@extends('layouts.app', ['title' => 'Absensi Praktikum'])
+@extends('layouts.app')
+@section('title', 'Absensi')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Absensi Praktikum', 'action' => '<a href="'.route('assistant.attendances.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Buat Sesi</a>'])
-<div class="space-y-4">@forelse($attendances as $attendance)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex flex-col justify-between gap-3 md:flex-row"><div><h2 class="font-bold">{{ $attendance->kelas?->course?->name }} - {{ $attendance->kelas?->name }}</h2><p class="text-sm text-slate-500">{{ $attendance->session_date?->format('d M Y') }} · {{ $attendance->records_count }} record</p></div><div class="flex items-center gap-3">@include('partials.badge', ['slot' => $attendance->is_open ? 'aktif' : 'nonaktif'])<a href="{{ route('assistant.attendances.show', $attendance) }}" class="font-semibold text-indigo-600">Kelola</a></div></div></article>@empty @include('partials.empty-state', ['title' => 'Belum ada sesi absensi']) @endforelse</div><div class="mt-5">{{ $attendances->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Absensi Praktikum', 'description' => 'Buka/tutup sesi absensi dan rekap kehadiran mahasiswa.'])
+<div class="toolbar"><span></span><a href="{{ route('assistant.attendances.create') }}" class="btn btn-primary">+ Buat Sesi Absensi</a></div>
+<div class="table-card"><table><thead><tr><th>Kelas</th><th>Tanggal</th><th>Status</th><th>Records</th><th>Aksi</th></tr></thead><tbody>
+@forelse($attendances as $attendance)
+<tr><td>{{ $attendance->kelas?->course?->name }} - {{ $attendance->kelas?->name }}</td><td>{{ optional($attendance->session_date)->format('d M Y') ?? $attendance->session_date }}</td><td><span class="badge {{ $attendance->is_open ? 'badge-green' : '' }}">{{ $attendance->is_open ? 'Dibuka' : 'Ditutup' }}</span></td><td>{{ $attendance->records_count ?? $attendance->records->count() }}</td><td class="actions-inline"><a class="btn btn-sm" href="{{ route('assistant.attendances.show', $attendance) }}">Kelola</a>@include('partials.delete-button', ['action' => route('assistant.attendances.destroy', $attendance)])</td></tr>
+@empty <tr><td colspan="5">Belum ada sesi absensi.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $attendances->links() }}</div>
 @endsection

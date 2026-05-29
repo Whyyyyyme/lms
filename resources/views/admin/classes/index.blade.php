@@ -1,7 +1,11 @@
-@extends('layouts.app', ['title' => 'Kelas Praktikum'])
+@extends('layouts.app')
+@section('title', 'Kelas Praktikum')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Admin', 'title' => 'Kelas Praktikum', 'description' => 'Kelola kelas, jadwal, asisten, dan mahasiswa praktikum.', 'action' => '<a href="'.route('admin.kelas.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Tambah Kelas</a>'])
-<div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"><table class="min-w-full divide-y divide-slate-200 text-sm"><thead class="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500"><tr><th class="px-5 py-3">Kelas</th><th class="px-5 py-3">Asisten</th><th class="px-5 py-3">Jadwal</th><th class="px-5 py-3">Mahasiswa</th><th class="px-5 py-3">Status</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-slate-100">
-@forelse ($classes as $class)<tr><td class="px-5 py-4"><p class="font-semibold">{{ $class->name }}</p><p class="text-slate-500">{{ $class->course?->name }}</p></td><td class="px-5 py-4">{{ $class->assistant?->name ?? '-' }}</td><td class="px-5 py-4">{{ $class->schedule ?? '-' }}<br><span class="text-slate-500">{{ $class->room ?? '-' }}</span></td><td class="px-5 py-4">{{ $class->students_count }}</td><td class="px-5 py-4">@include('partials.badge', ['slot' => $class->is_active ? 'aktif' : 'nonaktif'])</td><td class="px-5 py-4 text-right"><a href="{{ route('admin.kelas.show', $class) }}" class="font-semibold text-indigo-600">Detail</a><a href="{{ route('admin.kelas.edit', $class) }}" class="ml-3 font-semibold text-slate-600">Edit</a></td></tr>@empty<tr><td colspan="6" class="px-5 py-10">@include('partials.empty-state')</td></tr>@endforelse
-</tbody></table></div><div class="mt-5">{{ $classes->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Admin', 'title' => 'Kelas Praktikum', 'description' => 'Kelola kelas, jadwal, ruangan, asisten, dan mahasiswa.'])
+<div class="toolbar"><span></span><a href="{{ route('admin.kelas.create') }}" class="btn btn-primary">+ Tambah Kelas</a></div>
+<div class="table-card"><table><thead><tr><th>Kelas</th><th>Matakuliah</th><th>Asisten</th><th>Jadwal</th><th>Mahasiswa</th><th>Aksi</th></tr></thead><tbody>
+@forelse($classes as $class)
+<tr><td><strong>{{ $class->name }}</strong><br><small>{{ $class->room ?? '-' }}</small></td><td>{{ $class->course?->name }}</td><td>{{ $class->assistant?->name ?? '-' }}</td><td>{{ $class->schedule ?? '-' }}</td><td>{{ $class->students_count ?? 0 }}</td><td class="actions-inline"><a class="btn btn-sm" href="{{ route('admin.kelas.show', $class) }}">Detail</a><a class="btn btn-sm" href="{{ route('admin.kelas.edit', $class) }}">Edit</a>@include('partials.delete-button', ['action' => route('admin.kelas.destroy', $class)])</td></tr>
+@empty <tr><td colspan="6">Belum ada kelas praktikum.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $classes->links() }}</div>
 @endsection

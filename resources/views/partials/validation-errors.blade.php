@@ -1,7 +1,7 @@
 @if ($errors->any())
-    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        <p class="font-bold">Ada data yang perlu diperbaiki:</p>
-        <ul class="mt-2 list-disc space-y-1 pl-5">
+    <div class="alert alert-error">
+        <strong>Ada data yang perlu diperbaiki:</strong>
+        <ul style="margin:8px 0 0 18px;">
             @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
             @endforeach

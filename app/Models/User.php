@@ -26,6 +26,7 @@ class User extends Authenticatable implements FilamentUser
         'role',
         'avatar',
         'kelas_id',
+        'study_semester_id',
         'is_active',
         'email_verified_at',
     ];
@@ -44,19 +45,32 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    /**
-     * Akses panel Filament hanya untuk admin aktif.
-     */
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_active && $this->hasRole('admin');
     }
 
+    /**
+     * Relasi lama untuk kompatibilitas kode sebelumnya.
+     * Jangan dipakai sebagai sumber utama klasifikasi mahasiswa baru.
+     */
     public function kelas(): BelongsTo
     {
         return $this->belongsTo(PraktikumClass::class, 'kelas_id');
     }
 
+    /** Semester aktif mahasiswa, misalnya Semester 1, 2, 3, dst. */
+    public function studySemester(): BelongsTo
+    {
+        return $this->belongsTo(StudySemester::class);
+    }
+
+    public function semesterEnrollments(): HasMany
+    {
+        return $this->hasMany(StudentSemesterEnrollment::class, 'student_id');
+    }
+
+    /** Kelas praktikum yang secara manual/khusus diikuti mahasiswa. */
     public function kelasDiikuti(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -65,6 +79,19 @@ class User extends Authenticatable implements FilamentUser
             'student_id',
             'class_id'
         )->withTimestamps();
+    }
+
+    /** Semua kelas yang tersedia untuk semester mahasiswa. */
+    public function kelasBerdasarkanSemester(): HasMany
+    {
+        return $this->hasManyThrough(
+            PraktikumClass::class,
+            Course::class,
+            'study_semester_id',
+            'course_id',
+            'study_semester_id',
+            'id'
+        );
     }
 
     public function kelasDiasisteni(): HasMany

@@ -1,5 +1,12 @@
-@extends('layouts.app', ['title' => 'Detail Matakuliah'])
+@extends('layouts.app')
+@section('title', 'Detail Matakuliah')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Admin', 'title' => $course->name, 'description' => $course->code])
-<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div class="mb-5 flex justify-end gap-3"><a href="{{ route('admin.matakuliah.edit', $course) }}" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Edit</a>@include('partials.delete-button', ['action' => route('admin.matakuliah.destroy', $course)])</div><h2 class="font-bold">Kelas Praktikum</h2><div class="mt-4 grid gap-3 md:grid-cols-2">@forelse($course->classes as $class)<div class="rounded-2xl bg-slate-50 p-4"><p class="font-semibold">{{ $class->name }}</p><p class="text-sm text-slate-500">Asisten: {{ $class->assistant?->name ?? '-' }} · {{ $class->students->count() }} mahasiswa</p></div>@empty @include('partials.empty-state', ['title' => 'Belum ada kelas']) @endforelse</div></section>
+@include('partials.page-header', ['eyebrow' => 'Admin', 'title' => 'Detail Matakuliah'])
+<div class="form-card">
+    <p><strong>Kode:</strong> {{ $course->code }}</p>
+    <p><strong>Nama:</strong> {{ $course->name }}</p>
+    <p><strong>SKS:</strong> {{ $course->sks }}</p>
+    <p><strong>Tahun Akademik:</strong> {{ $course->academicYear?->year }} - {{ ucfirst($course->academicYear?->semester ?? '') }}</p>
+    <div class="form-actions"><a class="btn" href="{{ route('admin.matakuliah.index') }}">Kembali</a><a class="btn btn-primary" href="{{ route('admin.matakuliah.edit', $course) }}">Edit</a></div>
+</div>
 @endsection

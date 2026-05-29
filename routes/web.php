@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ClassController as AdminClassController;
 use App\Http\Controllers\Admin\CourseController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\StudySemesterController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Assistant\AnnouncementController as AssistantAnnouncementController;
 use App\Http\Controllers\Assistant\AssignmentController as AssistantAssignmentController;
@@ -25,30 +26,15 @@ use App\Http\Controllers\Mahasiswa\MaterialController as StudentMaterialControll
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes - LMS Praktikum
-|--------------------------------------------------------------------------
-|
-| Route ini memakai auth Breeze/Jetstream, middleware aktif, dan role
-| middleware dari Spatie Laravel Permission.
-|
-*/
-
 Route::get('/', function () {
     return auth()->check()
         ? redirect()->route('dashboard')
         : redirect()->route('login');
 })->name('home');
 
-Route::middleware(['auth', 'verified', 'active'])->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard');
 
-    /*
-    |--------------------------------------------------------------------------
-    | Notifikasi umum untuk semua role yang sudah login
-    |--------------------------------------------------------------------------
-    */
     Route::prefix('notifikasi')->name('notifications.')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
         Route::patch('/{notification}/dibaca', [NotificationController::class, 'markAsRead'])->name('read');
@@ -56,11 +42,6 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
     });
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN
-    |--------------------------------------------------------------------------
-    */
     Route::prefix('admin')
         ->name('admin.')
         ->middleware('role:admin')
@@ -68,6 +49,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
             Route::resource('users', UserController::class);
+            Route::resource('semester', StudySemesterController::class)->parameters([
+                'semester' => 'studySemester',
+            ]);
             Route::resource('tahun-akademik', AcademicYearController::class)->parameters([
                 'tahun-akademik' => 'academicYear',
             ]);
@@ -90,11 +74,6 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
             Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | ASISTEN PRAKTIKUM
-    |--------------------------------------------------------------------------
-    */
     Route::prefix('asisten')
         ->name('assistant.')
         ->middleware('role:asisten')
@@ -138,11 +117,6 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
             });
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | MAHASISWA
-    |--------------------------------------------------------------------------
-    */
     Route::prefix('mahasiswa')
         ->name('student.')
         ->middleware('role:mahasiswa')

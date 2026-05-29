@@ -41,9 +41,13 @@ class MaterialController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'type' => ['required', Rule::in(['pdf', 'video', 'dokumen', 'link'])],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,ppt,pptx,zip,rar', 'max:20480'],
+            'file' => ['nullable', 'file', 'max:102400'],
             'link' => ['nullable', 'url', 'max:255'],
             'published_at' => ['nullable', 'date'],
+        ], [
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
@@ -103,9 +107,13 @@ class MaterialController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'type' => ['required', Rule::in(['pdf', 'video', 'dokumen', 'link'])],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,ppt,pptx,zip,rar', 'max:20480'],
+            'file' => ['nullable', 'file', 'max:102400'],
             'link' => ['nullable', 'url', 'max:255'],
             'published_at' => ['nullable', 'date'],
+        ], [
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);

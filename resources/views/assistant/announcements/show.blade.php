@@ -1,5 +1,11 @@
-@extends('layouts.app', ['title' => 'Detail Pengumuman'])
+@extends('layouts.app')
+@section('title', 'Detail Pengumuman')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => $announcement->title, 'description' => $announcement->kelas?->course?->name.' - '.$announcement->kelas?->name])
-<section class="rounded-3xl border bg-white p-6 shadow-sm"><div class="mb-5 flex justify-end gap-3"><a href="{{ route('assistant.pengumuman.edit', $announcement) }}" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Edit</a>@include('partials.delete-button', ['action' => route('assistant.pengumuman.destroy', $announcement)])</div><p class="whitespace-pre-line text-slate-700">{{ $announcement->content }}</p></section>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Detail Pengumuman'])
+<div class="form-card">
+    <p><strong>Judul:</strong> {{ $announcement->title }}</p>
+    <p><strong>Kelas:</strong> {{ $announcement->kelas?->course?->name }} - {{ $announcement->kelas?->name }}</p>
+    <p><strong>Isi:</strong><br>{{ $announcement->content }}</p>
+    <div class="form-actions"><a class="btn" href="{{ route('assistant.pengumuman.index') }}">Kembali</a><a class="btn btn-primary" href="{{ route('assistant.pengumuman.edit', $announcement) }}">Edit</a></div>
+</div>
 @endsection

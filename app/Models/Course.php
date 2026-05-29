@@ -13,6 +13,7 @@ class Course extends Model
 
     protected $fillable = [
         'academic_year_id',
+        'study_semester_id',
         'name',
         'code',
         'sks',
@@ -30,6 +31,11 @@ class Course extends Model
     public function academicYear(): BelongsTo
     {
         return $this->belongsTo(AcademicYear::class);
+    }
+
+    public function studySemester(): BelongsTo
+    {
+        return $this->belongsTo(StudySemester::class);
     }
 
     public function classes(): HasMany

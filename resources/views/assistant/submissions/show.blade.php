@@ -1,5 +1,21 @@
-@extends('layouts.app', ['title' => 'Nilai Submission'])
+@extends('layouts.app')
+@section('title', 'Nilai Submission')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Nilai Submission', 'description' => $submission->student?->name.' · '.$submission->assignment?->title])
-<div class="grid gap-6 lg:grid-cols-3"><section class="rounded-3xl border bg-white p-6 shadow-sm lg:col-span-2"><dl class="grid gap-4 md:grid-cols-2"><div><dt class="text-sm text-slate-500">Mahasiswa</dt><dd class="font-semibold">{{ $submission->student?->name }}</dd></div><div><dt class="text-sm text-slate-500">Tugas</dt><dd class="font-semibold">{{ $submission->assignment?->title }}</dd></div><div><dt class="text-sm text-slate-500">Dikumpulkan</dt><dd class="font-semibold">{{ $submission->submitted_at?->format('d M Y H:i') }}</dd></div><div><dt class="text-sm text-slate-500">File</dt><dd>@if($submission->file_path)<a target="_blank" href="{{ asset('storage/'.$submission->file_path) }}" class="font-semibold text-indigo-600">Buka file</a>@else - @endif</dd></div></dl><form action="{{ route('assistant.submissions.grade', $submission) }}" method="POST" class="mt-8 space-y-5 border-t pt-6">@csrf @method('PATCH')@include('partials.form.input', ['label' => 'Nilai', 'name' => 'score', 'type' => 'number', 'value' => $submission->score, 'required' => true])@include('partials.form.textarea', ['label' => 'Feedback', 'name' => 'feedback', 'value' => $submission->feedback])@include('partials.form.actions', ['cancel' => route('assistant.submissions.index'), 'label' => 'Simpan Nilai'])</form></section></div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Nilai Submission'])
+<div class="form-card">
+    <p><strong>Mahasiswa:</strong> {{ $submission->student?->name }}</p>
+    <p><strong>Tugas:</strong> {{ $submission->assignment?->title }}</p>
+    <p><strong>Dikumpulkan:</strong> {{ optional($submission->submitted_at)->format('d M Y H:i') }}</p>
+    @if($submission->file_path)<p><a style="color:var(--primary);font-weight:700;" target="_blank" href="{{ asset('storage/'.$submission->file_path) }}">Download submission</a></p>@endif
+    <form action="{{ route('assistant.submissions.grade', $submission) }}" method="POST" style="margin-top:18px;">
+        @csrf
+        @method('PATCH')
+        <div class="form-grid">
+            @include('partials.form.input', ['label' => 'Nilai', 'name' => 'score', 'type' => 'number', 'value' => $submission->score, 'required' => true])
+            <div></div>
+            <div style="grid-column:1/-1;">@include('partials.form.textarea', ['label' => 'Feedback', 'name' => 'feedback', 'value' => $submission->feedback])</div>
+        </div>
+        @include('partials.form.actions', ['cancel' => route('assistant.submissions.index'), 'label' => 'Simpan Nilai'])
+    </form>
+</div>
 @endsection

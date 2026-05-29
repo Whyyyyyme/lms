@@ -2,113 +2,150 @@
     use Illuminate\Support\Facades\Route;
 
     $user = auth()->user();
-    $safeRoute = function (string $name, array $params = [], string $fallback = '#') {
-        return Route::has($name) ? route($name, $params) : $fallback;
-    };
-    $safeActive = function (string $pattern) {
-        return request()->routeIs($pattern);
-    };
 
-    $isAdmin = $user?->hasRole('admin') ?? false;
-    $isAssistant = $user?->hasRole('asisten') ?? false;
-    $isStudent = $user?->hasRole('mahasiswa') ?? false;
+    $isAdmin = $user && method_exists($user, 'hasRole') && $user->hasRole('admin');
+    $isAssistant = $user && method_exists($user, 'hasRole') && $user->hasRole('asisten');
+    $isStudent = $user && method_exists($user, 'hasRole') && $user->hasRole('mahasiswa');
+
+    if ($user && ! method_exists($user, 'hasRole')) {
+        $isAdmin = ($user->role ?? null) === 'admin';
+        $isAssistant = ($user->role ?? null) === 'asisten';
+        $isStudent = ($user->role ?? null) === 'mahasiswa';
+    }
+
+    $roleLabel = $isAdmin ? 'Admin' : ($isAssistant ? 'Asisten Praktikum' : ($isStudent ? 'Mahasiswa' : 'Pengguna'));
+    $isActive = fn (string $pattern): string => request()->is($pattern) ? 'active' : '';
 @endphp
 
-<div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-950/40 lg:hidden" @click="sidebarOpen = false"></div>
+<div class="sidebar-overlay" data-sidebar-close></div>
 
-<aside
-    class="fixed inset-y-0 left-0 z-50 w-72 transform border-r border-slate-200 bg-white shadow-xl transition lg:translate-x-0 lg:shadow-none"
-    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
-    <div class="flex h-full flex-col">
-        <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-            <div class="grid h-10 w-10 place-items-center rounded-2xl bg-indigo-600 text-lg font-black text-white">L</div>
-            <div>
-                <div class="text-sm font-bold uppercase tracking-wide text-indigo-600">LMS Praktikum</div>
-                <div class="text-xs text-slate-500">Sistem Pembelajaran</div>
-            </div>
+<aside class="sidebar-drawer" aria-label="Sidebar menu">
+    <div class="sidebar-header">
+        <div>
+            <div class="sidebar-title">LMS Praktikum</div>
+            <div class="sidebar-subtitle">Menu navigasi utama</div>
         </div>
-
-        <div class="flex-1 overflow-y-auto px-4 py-5">
-            <div class="mb-5 rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-semibold text-slate-900">{{ $user?->name ?? 'Pengguna' }}</p>
-                <p class="truncate text-xs text-slate-500">{{ $user?->email ?? '-' }}</p>
-                <div class="mt-3 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                    {{ $isAdmin ? 'Admin' : ($isAssistant ? 'Asisten Praktikum' : ($isStudent ? 'Mahasiswa' : 'User')) }}
-                </div>
-            </div>
-
-            <nav class="space-y-7">
-                @if($isAdmin)
-                    <div>
-                        <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Menu Admin</p>
-                        <div class="space-y-1">
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.dashboard'), 'active' => $safeActive('admin.dashboard'), 'icon' => '📊', 'label' => 'Dashboard'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.users.index'), 'active' => $safeActive('admin.users.*'), 'icon' => '👥', 'label' => 'Kelola User'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.tahun-akademik.index'), 'active' => $safeActive('admin.tahun-akademik.*'), 'icon' => '📅', 'label' => 'Tahun Akademik'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.matakuliah.index'), 'active' => $safeActive('admin.matakuliah.*'), 'icon' => '📚', 'label' => 'Matakuliah'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.kelas.index'), 'active' => $safeActive('admin.kelas.*'), 'icon' => '🏫', 'label' => 'Kelas Praktikum'])
-                        </div>
-                    </div>
-
-                    <div>
-                        <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Laporan</p>
-                        <div class="space-y-1">
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.reports.scores'), 'active' => $safeActive('admin.reports.scores'), 'icon' => '🧾', 'label' => 'Laporan Nilai'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.reports.attendances'), 'active' => $safeActive('admin.reports.attendances'), 'icon' => '✅', 'label' => 'Laporan Absensi'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.reports.activities'), 'active' => $safeActive('admin.reports.activities'), 'icon' => '📌', 'label' => 'Aktivitas'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('admin.settings.edit'), 'active' => $safeActive('admin.settings.*'), 'icon' => '⚙️', 'label' => 'Pengaturan'])
-                        </div>
-                    </div>
-                @endif
-
-                @if($isAssistant)
-                    <div>
-                        <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Menu Asisten</p>
-                        <div class="space-y-1">
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.dashboard'), 'active' => $safeActive('assistant.dashboard'), 'icon' => '📊', 'label' => 'Dashboard'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.materi.index'), 'active' => $safeActive('assistant.materi.*'), 'icon' => '📘', 'label' => 'Materi'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.tugas.index'), 'active' => $safeActive('assistant.tugas.*'), 'icon' => '📝', 'label' => 'Tugas'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.submissions.index'), 'active' => $safeActive('assistant.submissions.*'), 'icon' => '📥', 'label' => 'Submission'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.attendances.index'), 'active' => $safeActive('assistant.attendances.*'), 'icon' => '✅', 'label' => 'Absensi'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.pengumuman.index'), 'active' => $safeActive('assistant.pengumuman.*'), 'icon' => '📢', 'label' => 'Pengumuman'])
-                        </div>
-                    </div>
-
-                    <div>
-                        <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Export</p>
-                        <div class="space-y-1">
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.exports.scores.excel'), 'active' => false, 'icon' => '📗', 'label' => 'Export Nilai Excel'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('assistant.exports.attendances.excel'), 'active' => false, 'icon' => '📙', 'label' => 'Export Absensi Excel'])
-                        </div>
-                    </div>
-                @endif
-
-                @if($isStudent)
-                    <div>
-                        <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Menu Mahasiswa</p>
-                        <div class="space-y-1">
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.dashboard'), 'active' => $safeActive('student.dashboard'), 'icon' => '📊', 'label' => 'Dashboard'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.materials.index'), 'active' => $safeActive('student.materials.*'), 'icon' => '📘', 'label' => 'Materi'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.assignments.index'), 'active' => $safeActive('student.assignments.*'), 'icon' => '📝', 'label' => 'Tugas'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.grades.index'), 'active' => $safeActive('student.grades.*'), 'icon' => '🏆', 'label' => 'Nilai'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.attendances.index'), 'active' => $safeActive('student.attendances.*'), 'icon' => '✅', 'label' => 'Absensi'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.schedule.index'), 'active' => $safeActive('student.schedule.*'), 'icon' => '🗓️', 'label' => 'Jadwal'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.calendar.index'), 'active' => $safeActive('student.calendar.*'), 'icon' => '📅', 'label' => 'Kalender'])
-                            @include('partials.navigation-link', ['href' => $safeRoute('student.chatbot.index'), 'active' => $safeActive('student.chatbot.*'), 'icon' => '🤖', 'label' => 'AI Chatbot'])
-                        </div>
-                    </div>
-                @endif
-
-                <div>
-                    <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Akun</p>
-                    <div class="space-y-1">
-                        @include('partials.navigation-link', ['href' => $safeRoute('notifications.index'), 'active' => $safeActive('notifications.*'), 'icon' => '🔔', 'label' => 'Notifikasi'])
-                        @if(Route::has('logout'))
-                            @include('partials.navigation-link', ['href' => route('logout'), 'icon' => '🚪', 'label' => 'Logout', 'method' => 'POST'])
-                        @endif
-                    </div>
-                </div>
-            </nav>
-        </div>
+        <button type="button" class="icon-btn" data-sidebar-close aria-label="Tutup menu">✕</button>
     </div>
+
+    @auth
+        <div class="sidebar-user">
+            <div class="sidebar-user-name">{{ $user->name }}</div>
+            <div class="sidebar-user-email">{{ $user->email }}</div>
+            @if($isStudent && $user->studySemester)
+                <div class="sidebar-user-role">{{ $roleLabel }} • {{ $user->studySemester->name }}</div>
+            @else
+                <div class="sidebar-user-role">{{ $roleLabel }}</div>
+            @endif
+        </div>
+    @endauth
+
+    <nav class="sidebar-nav">
+        @if ($isAdmin)
+            <div class="sidebar-section">Menu Admin</div>
+
+            @if(Route::has('admin.dashboard'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/dashboard') }}" href="{{ route('admin.dashboard') }}"><span class="sidebar-icon">🏠</span>Dashboard</a>
+            @endif
+            @if(Route::has('admin.users.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/users*') }}" href="{{ route('admin.users.index') }}"><span class="sidebar-icon">👥</span>Kelola User</a>
+            @endif
+            @if(Route::has('admin.semester.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/semester*') }}" href="{{ route('admin.semester.index') }}"><span class="sidebar-icon">🎓</span>Semester Mahasiswa</a>
+            @endif
+            @if(Route::has('admin.tahun-akademik.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/tahun-akademik*') }}" href="{{ route('admin.tahun-akademik.index') }}"><span class="sidebar-icon">📅</span>Tahun Akademik</a>
+            @endif
+            @if(Route::has('admin.matakuliah.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/matakuliah*') }}" href="{{ route('admin.matakuliah.index') }}"><span class="sidebar-icon">📚</span>Matakuliah</a>
+            @endif
+            @if(Route::has('admin.kelas.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/kelas*') }}" href="{{ route('admin.kelas.index') }}"><span class="sidebar-icon">🏫</span>Kelas Praktikum</a>
+            @endif
+
+            <div class="sidebar-section">Laporan</div>
+            @if(Route::has('admin.reports.scores'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/laporan/nilai*') }}" href="{{ route('admin.reports.scores') }}"><span class="sidebar-icon">📊</span>Laporan Nilai</a>
+            @endif
+            @if(Route::has('admin.reports.attendances'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/laporan/absensi*') }}" href="{{ route('admin.reports.attendances') }}"><span class="sidebar-icon">✅</span>Laporan Absensi</a>
+            @endif
+            @if(Route::has('admin.reports.activities'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/laporan/aktivitas*') }}" href="{{ route('admin.reports.activities') }}"><span class="sidebar-icon">🧾</span>Aktivitas</a>
+            @endif
+            @if(Route::has('admin.settings.edit'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('admin/pengaturan*') }}" href="{{ route('admin.settings.edit') }}"><span class="sidebar-icon">⚙️</span>Pengaturan</a>
+            @endif
+        @endif
+
+        @if ($isAssistant)
+            <div class="sidebar-section">Menu Asisten</div>
+
+            @if(Route::has('assistant.dashboard'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/dashboard') }}" href="{{ route('assistant.dashboard') }}"><span class="sidebar-icon">🏠</span>Dashboard</a>
+            @endif
+            @if(Route::has('assistant.materi.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/materi*') }}" href="{{ route('assistant.materi.index') }}"><span class="sidebar-icon">📘</span>Materi</a>
+            @endif
+            @if(Route::has('assistant.tugas.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/tugas*') }}" href="{{ route('assistant.tugas.index') }}"><span class="sidebar-icon">📝</span>Tugas</a>
+            @endif
+            @if(Route::has('assistant.submissions.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/submissions*') }}" href="{{ route('assistant.submissions.index') }}"><span class="sidebar-icon">📥</span>Submission</a>
+            @endif
+            @if(Route::has('assistant.attendances.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/absensi*') }}" href="{{ route('assistant.attendances.index') }}"><span class="sidebar-icon">✅</span>Absensi</a>
+            @endif
+            @if(Route::has('assistant.pengumuman.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('asisten/pengumuman*') }}" href="{{ route('assistant.pengumuman.index') }}"><span class="sidebar-icon">📢</span>Pengumuman</a>
+            @endif
+
+            <div class="sidebar-section">Export</div>
+            @if(Route::has('assistant.exports.scores.excel'))
+                <a data-sidebar-link class="sidebar-link" href="{{ route('assistant.exports.scores.excel') }}"><span class="sidebar-icon">📗</span>Export Nilai</a>
+            @endif
+            @if(Route::has('assistant.exports.attendances.excel'))
+                <a data-sidebar-link class="sidebar-link" href="{{ route('assistant.exports.attendances.excel') }}"><span class="sidebar-icon">📕</span>Export Absensi</a>
+            @endif
+        @endif
+
+        @if ($isStudent)
+            <div class="sidebar-section">Menu Mahasiswa</div>
+
+            @if(Route::has('student.dashboard'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/dashboard') }}" href="{{ route('student.dashboard') }}"><span class="sidebar-icon">🏠</span>Dashboard</a>
+            @endif
+            @if(Route::has('student.materials.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/materi*') }}" href="{{ route('student.materials.index') }}"><span class="sidebar-icon">📘</span>Materi</a>
+            @endif
+            @if(Route::has('student.assignments.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/tugas*') }}" href="{{ route('student.assignments.index') }}"><span class="sidebar-icon">📝</span>Tugas</a>
+            @endif
+            @if(Route::has('student.grades.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/nilai*') }}" href="{{ route('student.grades.index') }}"><span class="sidebar-icon">⭐</span>Nilai</a>
+            @endif
+            @if(Route::has('student.attendances.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/absensi*') }}" href="{{ route('student.attendances.index') }}"><span class="sidebar-icon">✅</span>Absensi</a>
+            @endif
+            @if(Route::has('student.calendar.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/kalender*') }}" href="{{ route('student.calendar.index') }}"><span class="sidebar-icon">📅</span>Jadwal & Kalender</a>
+            @endif
+            @if(Route::has('student.chatbot.index'))
+                <a data-sidebar-link class="sidebar-link {{ $isActive('mahasiswa/chatbot*') }}" href="{{ route('student.chatbot.index') }}"><span class="sidebar-icon">🤖</span>AI Chatbot</a>
+            @endif
+        @endif
+
+        <div class="sidebar-section">Akun</div>
+
+        @if(Route::has('notifications.index'))
+            <a data-sidebar-link class="sidebar-link {{ $isActive('notifikasi*') }}" href="{{ route('notifications.index') }}"><span class="sidebar-icon">🔔</span>Notifikasi</a>
+        @endif
+
+        @if(Route::has('logout'))
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="sidebar-link sidebar-logout"><span class="sidebar-icon">🚪</span>Logout</button>
+            </form>
+        @endif
+    </nav>
 </aside>

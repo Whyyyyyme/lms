@@ -22,9 +22,13 @@ class SettingController extends Controller
         $validated = $request->validate([
             'campus_name' => ['required', 'string', 'max:255'],
             'app_name' => ['required', 'string', 'max:255'],
-            'logo' => ['nullable', 'image', 'max:2048'],
+            'logo' => ['nullable', 'image', 'max:5120'],
             'timezone' => ['required', 'string', 'max:100'],
             'academic_calendar_note' => ['nullable', 'string'],
+        ], [
+            'logo.uploaded' => 'Logo gagal diunggah. Cek ukuran file dan konfigurasi upload di php.ini.',
+            'logo.max' => 'Ukuran logo maksimal 5 MB.',
+            'logo.image' => 'Logo harus berupa gambar.',
         ]);
 
         $settings = $this->settings();

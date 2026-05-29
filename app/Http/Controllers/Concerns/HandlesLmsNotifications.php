@@ -2,28 +2,31 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\LmsNotification;
 use App\Models\User;
-use App\Notifications\LmsBaseNotification;
-use App\Services\LmsNotificationService;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 trait HandlesLmsNotifications
 {
     /**
-     * Kompatibel dengan controller lama: cukup panggil notifyUsers($students, ...).
-     * Sekarang prosesnya masuk queue dan broadcast event setelah tersimpan.
+     * Buat notifikasi database sederhana yang kompatibel dengan tabel notifications LMS.
+     * Notification class broadcast akan dibuat pada tahap berikutnya.
      */
-    protected function notifyUsers(Collection|EloquentCollection $users, string $type, string $title, string $message, array $data = []): void
+    protected function notifyUsers(Collection $users, string $type, string $title, string $message, array $data = []): void
     {
-        app(LmsNotificationService::class)->sendRaw($users, $type, $title, $message, $data);
-    }
-
-    /**
-     * Versi baru: gunakan class Notification agar payload lebih rapi dan reusable.
-     */
-    protected function notifyWithClass(User|Collection|EloquentCollection $users, LmsBaseNotification $notification): void
-    {
-        app(LmsNotificationService::class)->send($users, $notification);
+        $users->filter()->unique('id')->each(function (User $user) use ($type, $title, $message, $data): void {
+            LmsNotification::create([
+                'id' => (string) Str::uuid(),
+                'type' => $type,
+                'notifiable_type' => User::class,
+                'notifiable_id' => $user->id,
+                'user_id' => $user->id,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+                'read_at' => null,
+            ]);
+        });
     }
 }

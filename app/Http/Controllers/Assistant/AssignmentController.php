@@ -40,9 +40,13 @@ class AssignmentController extends Controller
             'class_id' => ['required', 'exists:classes,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,ppt,pptx,zip,rar', 'max:20480'],
+            'file' => ['nullable', 'file', 'max:102400'],
             'deadline' => ['required', 'date', 'after:now'],
             'max_score' => ['required', 'integer', 'min:1', 'max:1000'],
+        ], [
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
@@ -95,9 +99,13 @@ class AssignmentController extends Controller
             'class_id' => ['required', 'exists:classes,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,ppt,pptx,zip,rar', 'max:20480'],
+            'file' => ['nullable', 'file', 'max:102400'],
             'deadline' => ['required', 'date'],
             'max_score' => ['required', 'integer', 'min:1', 'max:1000'],
+        ], [
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);

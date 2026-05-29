@@ -1,5 +1,11 @@
-@extends('layouts.app', ['title' => 'Materi Praktikum'])
+@extends('layouts.app')
+@section('title', 'Materi')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Materi Praktikum', 'action' => '<a href="'.route('assistant.materi.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Upload Materi</a>'])
-<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">@forelse($materials as $material)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex items-start justify-between"><span class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">{{ strtoupper($material->type) }}</span><span class="text-xs text-slate-400">{{ $material->published_at?->format('d M Y') }}</span></div><h2 class="mt-4 font-bold text-slate-950">{{ $material->title }}</h2><p class="mt-1 text-sm text-slate-500">{{ $material->kelas?->course?->name }} - {{ $material->kelas?->name }}</p><p class="mt-3 line-clamp-3 text-sm text-slate-600">{{ $material->description }}</p><div class="mt-5 flex gap-3"><a href="{{ route('assistant.materi.show', $material) }}" class="font-semibold text-indigo-600">Detail</a><a href="{{ route('assistant.materi.edit', $material) }}" class="font-semibold text-slate-600">Edit</a></div></article>@empty @include('partials.empty-state', ['title' => 'Belum ada materi']) @endforelse</div><div class="mt-5">{{ $materials->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Materi Praktikum', 'description' => 'Kelola materi yang bisa diakses mahasiswa.'])
+<div class="toolbar"><span></span><a href="{{ route('assistant.materi.create') }}" class="btn btn-primary">+ Upload Materi</a></div>
+<div class="table-card"><table><thead><tr><th>Judul</th><th>Kelas</th><th>Tipe</th><th>Publikasi</th><th>Aksi</th></tr></thead><tbody>
+@forelse($materials as $material)
+<tr><td><strong>{{ $material->title }}</strong><br><small>{{ str($material->description)->limit(80) }}</small></td><td>{{ $material->kelas?->course?->name }} - {{ $material->kelas?->name }}</td><td>{{ strtoupper($material->type) }}</td><td>{{ optional($material->published_at)->format('d M Y H:i') ?? '-' }}</td><td class="actions-inline"><a class="btn btn-sm" href="{{ route('assistant.materi.show', $material) }}">Detail</a><a class="btn btn-sm" href="{{ route('assistant.materi.edit', $material) }}">Edit</a>@include('partials.delete-button', ['action' => route('assistant.materi.destroy', $material)])</td></tr>
+@empty <tr><td colspan="5">Belum ada materi.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $materials->links() }}</div>
 @endsection

@@ -1,5 +1,7 @@
-@extends('layouts.app', ['title' => 'Tambah Kelas'])
+@extends('layouts.app')
+@section('title', 'Tambah Kelas Praktikum')
 @section('content')
 @include('partials.page-header', ['eyebrow' => 'Admin', 'title' => 'Tambah Kelas Praktikum'])
-<form action="{{ route('admin.kelas.store') }}" method="POST" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">@csrf @include('admin.classes._form') @include('partials.form.actions', ['cancel' => route('admin.kelas.index')])</form>
+@if(($courses ?? collect())->isEmpty())<div class="alert alert-error">Buat matakuliah terlebih dahulu sebelum membuat kelas.</div>@endif
+<form action="{{ route('admin.kelas.store') }}" method="POST" class="form-card">@csrf @include('admin.classes._form') @include('partials.form.actions', ['cancel' => route('admin.kelas.index'), 'label' => 'Simpan Kelas'])</form>
 @endsection

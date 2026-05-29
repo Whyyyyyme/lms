@@ -16,7 +16,7 @@ class ClassController extends Controller
     public function index(Request $request): View
     {
         $classes = PraktikumClass::query()
-            ->with(['course.academicYear', 'assistant'])
+            ->with(['course.academicYear', 'course.studySemester', 'assistant'])
             ->withCount('students')
             ->when($request->filled('course_id'), fn ($query) => $query->where('course_id', $request->integer('course_id')))
             ->latest()
@@ -59,7 +59,7 @@ class ClassController extends Controller
 
     public function show(PraktikumClass $praktikumClass): View
     {
-        $praktikumClass->load(['course.academicYear', 'assistant', 'students', 'materials', 'assignments']);
+        $praktikumClass->load(['course.academicYear', 'course.studySemester', 'assistant', 'students.studySemester', 'materials', 'assignments']);
 
         return view('admin.classes.show', compact('praktikumClass'));
     }
@@ -112,23 +112,17 @@ class ClassController extends Controller
     private function formData(): array
     {
         return [
-            'courses' => Course::with('academicYear')->active()->orderBy('name')->get(),
+            'courses' => Course::with(['academicYear', 'studySemester'])->active()->orderBy('study_semester_id')->orderBy('name')->get(),
             'assistants' => User::role('asisten')->active()->orderBy('name')->get(),
-            'students' => User::role('mahasiswa')->active()->orderBy('name')->get(),
+            'students' => User::role('mahasiswa')->with('studySemester')->active()->orderBy('study_semester_id')->orderBy('name')->get(),
         ];
     }
 
     private function syncStudents(PraktikumClass $class, array $studentIds): void
     {
-        $oldStudentIds = $class->students()->pluck('users.id')->all();
-
         $class->students()->sync($studentIds);
 
-        User::whereIn('id', $oldStudentIds)
-            ->where('kelas_id', $class->id)
-            ->whereNotIn('id', $studentIds)
-            ->update(['kelas_id' => null]);
-
-        User::whereIn('id', $studentIds)->update(['kelas_id' => $class->id]);
+        // Tidak mengubah users.kelas_id lagi, karena mahasiswa sekarang boleh mengikuti beberapa kelas/matakuliah dalam satu semester.
+        // Akses umum mahasiswa dihitung dari study_semester_id, sedangkan class_students dipakai untuk override/pembagian kelas spesifik.
     }
 }

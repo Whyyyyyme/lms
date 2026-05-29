@@ -25,13 +25,22 @@ trait ResolvesClassAccess
     {
         $user ??= auth()->user();
 
-        $ids = $user->kelasDiikuti()->pluck('classes.id')->all();
+        $manualClassIds = $user->kelasDiikuti()->pluck('classes.id')->all();
 
-        if ($user->kelas_id && ! in_array($user->kelas_id, $ids, true)) {
-            $ids[] = $user->kelas_id;
+        $semesterClassIds = [];
+        if ($user->study_semester_id) {
+            $semesterClassIds = PraktikumClass::query()
+                ->whereHas('course', fn ($query) => $query->where('study_semester_id', $user->study_semester_id))
+                ->pluck('classes.id')
+                ->all();
         }
 
-        return array_values(array_unique($ids));
+        // Kompatibilitas data lama: kalau users.kelas_id masih terisi, tetap ikut dihitung.
+        if ($user->kelas_id) {
+            $manualClassIds[] = $user->kelas_id;
+        }
+
+        return array_values(array_unique(array_merge($manualClassIds, $semesterClassIds)));
     }
 
     protected function studentClasses(?User $user = null): Collection
@@ -39,7 +48,7 @@ trait ResolvesClassAccess
         $user ??= auth()->user();
 
         return PraktikumClass::query()
-            ->with(['course', 'assistant'])
+            ->with(['course.studySemester', 'assistant'])
             ->whereIn('id', $this->studentClassIds($user))
             ->orderBy('name')
             ->get();

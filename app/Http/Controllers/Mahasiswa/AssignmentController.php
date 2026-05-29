@@ -47,7 +47,12 @@ class AssignmentController extends Controller
         abort_if(now()->greaterThan($assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
 
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,doc,docx,zip,rar', 'max:20480'],
+            'file' => ['required', 'file', 'max:102400'],
+        ], [
+            'file.required' => 'File submission wajib diunggah.',
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         $oldSubmission = Submission::where('assignment_id', $assignment->id)
@@ -84,7 +89,12 @@ class AssignmentController extends Controller
         abort_if(now()->greaterThan($submission->assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
 
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,doc,docx,zip,rar', 'max:20480'],
+            'file' => ['required', 'file', 'max:102400'],
+        ], [
+            'file.required' => 'File submission wajib diunggah.',
+            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
         ]);
 
         if ($submission->file_path) {

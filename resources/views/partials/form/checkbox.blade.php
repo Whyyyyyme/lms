@@ -1,4 +1,5 @@
-<label class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-    <input type="checkbox" name="{{ $name }}" value="1" @checked(old($name, $checked ?? false)) class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-    <span class="text-sm font-semibold text-slate-700">{{ $label }}</span>
+@php($id = $id ?? str_replace(['[', ']'], '_', $name))
+<label class="checkbox-row" for="{{ $id }}">
+    <input id="{{ $id }}" type="checkbox" name="{{ $name }}" value="1" @checked(old($name, $checked ?? false))>
+    <span style="font-weight:700;color:#334155;">{{ $label }}</span>
 </label>

@@ -1,5 +1,11 @@
-@extends('layouts.app', ['title' => 'Pengumuman'])
+@extends('layouts.app')
+@section('title', 'Pengumuman')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Pengumuman', 'action' => '<a href="'.route('assistant.pengumuman.create').'" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Buat Pengumuman</a>'])
-<div class="space-y-4">@forelse($announcements as $announcement)<article class="rounded-3xl border bg-white p-5 shadow-sm"><div class="flex justify-between gap-4"><div><h2 class="font-bold">{{ $announcement->title }}</h2><p class="text-sm text-slate-500">{{ $announcement->kelas?->course?->name }} - {{ $announcement->kelas?->name }}</p><p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $announcement->content }}</p></div><div class="flex gap-3"><a href="{{ route('assistant.pengumuman.show', $announcement) }}" class="font-semibold text-indigo-600">Detail</a><a href="{{ route('assistant.pengumuman.edit', $announcement) }}" class="font-semibold text-slate-600">Edit</a></div></div></article>@empty @include('partials.empty-state') @endforelse</div><div class="mt-5">{{ $announcements->links() }}</div>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Pengumuman', 'description' => 'Kelola pengumuman untuk mahasiswa kelas praktikum.'])
+<div class="toolbar"><span></span><a href="{{ route('assistant.pengumuman.create') }}" class="btn btn-primary">+ Buat Pengumuman</a></div>
+<div class="table-card"><table><thead><tr><th>Judul</th><th>Kelas</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody>
+@forelse($announcements as $announcement)
+<tr><td><strong>{{ $announcement->title }}</strong><br><small>{{ str($announcement->content)->limit(100) }}</small></td><td>{{ $announcement->kelas?->course?->name }} - {{ $announcement->kelas?->name }}</td><td>{{ optional($announcement->created_at)->format('d M Y H:i') }}</td><td class="actions-inline"><a class="btn btn-sm" href="{{ route('assistant.pengumuman.show', $announcement) }}">Detail</a><a class="btn btn-sm" href="{{ route('assistant.pengumuman.edit', $announcement) }}">Edit</a>@include('partials.delete-button', ['action' => route('assistant.pengumuman.destroy', $announcement)])</td></tr>
+@empty <tr><td colspan="4">Belum ada pengumuman.</td></tr> @endforelse
+</tbody></table></div><div style="margin-top:16px;">{{ $announcements->links() }}</div>
 @endsection

@@ -1,5 +1,14 @@
-@extends('layouts.app', ['title' => 'Detail Tugas'])
+@extends('layouts.app')
+@section('title', 'Detail Tugas')
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => $assignment->title, 'description' => 'Deadline '.$assignment->deadline?->format('d M Y H:i')])
-<section class="rounded-3xl border bg-white p-6 shadow-sm"><div class="mb-5 flex justify-end gap-3"><a href="{{ route('assistant.tugas.edit', $assignment) }}" class="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Edit</a>@include('partials.delete-button', ['action' => route('assistant.tugas.destroy', $assignment)])</div><p class="whitespace-pre-line text-slate-700">{{ $assignment->description }}</p><h2 class="mt-8 font-bold">Submission Mahasiswa</h2><div class="mt-4 overflow-hidden rounded-2xl border"><table class="min-w-full divide-y text-sm"><thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Mahasiswa</th><th class="px-4 py-3">Dikumpulkan</th><th class="px-4 py-3">Nilai</th></tr></thead><tbody class="divide-y">@forelse($assignment->submissions as $submission)<tr><td class="px-4 py-3">{{ $submission->student?->name }}</td><td class="px-4 py-3">{{ $submission->submitted_at?->format('d M Y H:i') }}</td><td class="px-4 py-3">{{ $submission->score ?? '-' }}</td></tr>@empty<tr><td colspan="3" class="px-4 py-8">@include('partials.empty-state', ['title' => 'Belum ada submission'])</td></tr>@endforelse</tbody></table></div></section>
+@include('partials.page-header', ['eyebrow' => 'Asisten', 'title' => 'Detail Tugas'])
+<div class="form-card">
+    <p><strong>Judul:</strong> {{ $assignment->title }}</p>
+    <p><strong>Kelas:</strong> {{ $assignment->kelas?->course?->name }} - {{ $assignment->kelas?->name }}</p>
+    <p><strong>Deadline:</strong> {{ optional($assignment->deadline)->format('d M Y H:i') }}</p>
+    <p><strong>Nilai Maksimal:</strong> {{ $assignment->max_score }}</p>
+    <p><strong>Deskripsi:</strong><br>{{ $assignment->description ?? '-' }}</p>
+    @if($assignment->file_path)<p><a style="color:var(--primary);font-weight:700;" target="_blank" href="{{ asset('storage/'.$assignment->file_path) }}">Download lampiran</a></p>@endif
+    <div class="form-actions"><a class="btn" href="{{ route('assistant.tugas.index') }}">Kembali</a><a class="btn btn-primary" href="{{ route('assistant.tugas.edit', $assignment) }}">Edit</a></div>
+</div>
 @endsection

@@ -1,5 +1,19 @@
-<label class="block">
-    <span class="text-sm font-semibold text-slate-700">{{ $label }} @if($required ?? false)<span class="text-red-500">*</span>@endif</span>
-    <input type="{{ $type ?? 'text' }}" name="{{ $name }}" value="{{ old($name, $value ?? null) }}" placeholder="{{ $placeholder ?? '' }}" @required($required ?? false)
-        class="mt-1 w-full rounded-2xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+@php
+    $type = $type ?? 'text';
+    $id = $id ?? str_replace(['[', ']'], '_', $name);
+    $currentValue = old($name, $value ?? null);
+@endphp
+<label class="form-group" for="{{ $id }}">
+    <span class="form-label">{{ $label }} @if($required ?? false)<span class="required">*</span>@endif</span>
+    <input
+        id="{{ $id }}"
+        type="{{ $type }}"
+        name="{{ $name }}"
+        @if($type !== 'file') value="{{ $currentValue }}" @endif
+        placeholder="{{ $placeholder ?? '' }}"
+        @required($required ?? false)
+        class="form-control"
+        {{ $attributes ?? '' }}
+    >
+    @isset($help)<div class="form-help">{{ $help }}</div>@endisset
 </label>
