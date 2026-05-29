@@ -1,12 +1,20 @@
-<div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+@php
+    $title = $title ?? 'Halaman';
+    $description = $description ?? null;
+    $actionLabel = $actionLabel ?? null;
+    $actionUrl = $actionUrl ?? null;
+@endphp
+<div class="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
     <div>
-        <p class="text-sm font-medium uppercase tracking-wide text-indigo-600">{{ $eyebrow ?? 'LMS Praktikum' }}</p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ $title }}</h1>
-        @isset($description)
-            <p class="mt-2 max-w-3xl text-sm text-slate-600">{{ $description }}</p>
-        @endisset
+        <h2 class="text-2xl font-black tracking-tight text-slate-950">{{ $title }}</h2>
+        @if($description)
+            <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{{ $description }}</p>
+        @endif
     </div>
-    @isset($action)
-        <div>{!! $action !!}</div>
-    @endisset
+
+    @if($actionLabel && $actionUrl)
+        <a href="{{ $actionUrl }}" class="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
+            {{ $actionLabel }}
+        </a>
+    @endif
 </div>

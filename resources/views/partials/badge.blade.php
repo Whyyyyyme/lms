@@ -1,14 +1,12 @@
 @php
-    $map = [
-        'admin' => 'bg-purple-100 text-purple-700',
-        'asisten' => 'bg-sky-100 text-sky-700',
-        'mahasiswa' => 'bg-emerald-100 text-emerald-700',
-        'aktif' => 'bg-emerald-100 text-emerald-700',
-        'nonaktif' => 'bg-slate-100 text-slate-700',
-        'hadir' => 'bg-emerald-100 text-emerald-700',
-        'izin' => 'bg-amber-100 text-amber-700',
-        'alpha' => 'bg-red-100 text-red-700',
-    ];
-    $class = $map[strtolower((string) $slot)] ?? 'bg-slate-100 text-slate-700';
+    $type = $type ?? 'default';
+    $text = $text ?? '';
+    $classes = match($type) {
+        'success', 'aktif', 'hadir', 'sudah' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'warning', 'pending', 'izin' => 'bg-amber-50 text-amber-700 border-amber-200',
+        'danger', 'alpha', 'belum' => 'bg-rose-50 text-rose-700 border-rose-200',
+        'info' => 'bg-sky-50 text-sky-700 border-sky-200',
+        default => 'bg-slate-50 text-slate-700 border-slate-200',
+    };
 @endphp
-<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $class }}">{{ $slot }}</span>
+<span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold {{ $classes }}">{{ $text }}</span>
