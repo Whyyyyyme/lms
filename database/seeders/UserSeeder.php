@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\StudySemester;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -10,18 +11,22 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
+        $semester1 = StudySemester::where('level', 1)->first();
+
         $admin = User::updateOrCreate(
             ['email' => 'admin@lms.test'],
             [
                 'name' => 'Admin LMS',
                 'nim_nip' => 'ADM001',
+                'role' => 'admin',
+                'study_semester_id' => null,
                 'password' => Hash::make('password'),
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
         );
 
-        $admin->assignRole('admin');
+        $admin->syncRoles(['admin']);
 
         $assistants = [
             [
@@ -42,13 +47,15 @@ class UserSeeder extends Seeder
                 [
                     'name' => $assistantData['name'],
                     'nim_nip' => $assistantData['nim_nip'],
+                    'role' => 'asisten',
+                    'study_semester_id' => null,
                     'password' => Hash::make('password'),
                     'is_active' => true,
                     'email_verified_at' => now(),
                 ]
             );
 
-            $assistant->assignRole('asisten');
+            $assistant->syncRoles(['asisten']);
         }
 
         for ($i = 1; $i <= 10; $i++) {
@@ -57,13 +64,15 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Mahasiswa ' . str_pad((string) $i, 2, '0', STR_PAD_LEFT),
                     'nim_nip' => '231150' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+                    'role' => 'mahasiswa',
+                    'study_semester_id' => $semester1?->id,
                     'password' => Hash::make('password'),
                     'is_active' => true,
                     'email_verified_at' => now(),
                 ]
             );
 
-            $student->assignRole('mahasiswa');
+            $student->syncRoles(['mahasiswa']);
         }
     }
 }

@@ -15,21 +15,35 @@ class CourseController extends Controller
 {
     public function index(Request $request): View
     {
+        $search = trim((string) $request->input('search'));
+        $status = (string) $request->input('status', '');
+
         $courses = Course::query()
             ->with(['academicYear', 'studySemester'])
             ->withCount('classes')
-            ->when($request->filled('study_semester_id'), fn ($query) => $query->where('study_semester_id', $request->integer('study_semester_id')))
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $search = $request->string('search');
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('code', 'like', "%{$search}%");
+            ->when($request->filled('study_semester_id'), function ($query) use ($request) {
+                $query->where('study_semester_id', $request->integer('study_semester_id'));
             })
-            ->latest()
+            ->when($request->filled('academic_year_id'), function ($query) use ($request) {
+                $query->where('academic_year_id', $request->integer('academic_year_id'));
+            })
+            ->when($status !== '', function ($query) use ($status) {
+                $query->where('is_active', $status === '1');
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('is_active')
+            ->orderBy('name')
             ->paginate(10)
             ->withQueryString();
 
         return view('admin.courses.index', [
             'courses' => $courses,
+            'academicYears' => AcademicYear::orderByDesc('is_active')->latest()->get(),
             'studySemesters' => StudySemester::orderBy('level')->get(),
         ]);
     }
@@ -51,14 +65,24 @@ class CourseController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
-        Course::create($validated);
 
-        return redirect()->route('admin.matakuliah.index')->with('success', 'Matakuliah berhasil ditambahkan.');
+        $course = Course::create($validated);
+
+        return redirect()
+            ->route('admin.matakuliah.show', $course)
+            ->with('success', 'Mata kuliah berhasil ditambahkan.');
     }
 
     public function show(Course $course): View
     {
-        $course->load(['academicYear', 'studySemester', 'classes.assistant', 'classes.students']);
+        $course->load([
+            'academicYear',
+            'studySemester.students',
+            'classes.assistant',
+            'classes.students',
+        ]);
+
+        $course->loadCount('classes');
 
         return view('admin.courses.show', compact('course'));
     }
@@ -82,25 +106,41 @@ class CourseController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
+
         $course->update($validated);
 
-        return redirect()->route('admin.matakuliah.index')->with('success', 'Matakuliah berhasil diperbarui.');
+        return redirect()
+            ->route('admin.matakuliah.show', $course)
+            ->with('success', 'Mata kuliah berhasil diperbarui.');
     }
 
     public function destroy(Course $course): RedirectResponse
     {
-        abort_if($course->classes()->exists(), 422, 'Matakuliah masih memiliki kelas praktikum.');
+        abort_if(
+            $course->classes()->exists(),
+            422,
+            'Mata kuliah tidak bisa dihapus karena masih memiliki kelas praktikum.'
+        );
 
         $course->delete();
 
-        return redirect()->route('admin.matakuliah.index')->with('success', 'Matakuliah berhasil dihapus.');
+        return redirect()
+            ->route('admin.matakuliah.index')
+            ->with('success', 'Mata kuliah berhasil dihapus.');
     }
 
     private function formData(): array
     {
         return [
-            'academicYears' => AcademicYear::orderByDesc('is_active')->latest()->get(),
-            'studySemesters' => StudySemester::active()->orderBy('level')->get(),
+            'academicYears' => AcademicYear::query()
+                ->orderByDesc('is_active')
+                ->latest()
+                ->get(),
+
+            'studySemesters' => StudySemester::query()
+                ->active()
+                ->orderBy('level')
+                ->get(),
         ];
     }
 }

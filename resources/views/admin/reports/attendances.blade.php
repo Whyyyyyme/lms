@@ -1,6 +1,233 @@
-@extends('layouts.app', ['title' => 'Laporan Absensi'])
+@extends('layouts.app')
+
+@section('title', 'Laporan Absensi')
+
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Laporan', 'title' => 'Laporan Absensi', 'action' => '<a href="'.route('admin.reports.attendances.export').'" class="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Export CSV</a>'])
-<form method="GET" class="mb-5 flex gap-3 rounded-3xl border bg-white p-4"><select name="course_id" class="rounded-2xl border-slate-300"><option value="">Semua matakuliah</option>@foreach($courses as $course)<option value="{{ $course->id }}" @selected((string) request('course_id') === (string) $course->id)>{{ $course->name }}</option>@endforeach</select><button class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Filter</button></form>
-<div class="overflow-hidden rounded-3xl border bg-white shadow-sm"><table class="min-w-full divide-y text-sm"><thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Tanggal</th><th class="px-5 py-3">Kelas</th><th class="px-5 py-3">Dibuka Oleh</th><th class="px-5 py-3">Record</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y">@forelse($attendances as $attendance)<tr><td class="px-5 py-4">{{ $attendance->session_date?->format('d M Y') }}</td><td class="px-5 py-4">{{ $attendance->kelas?->course?->name }}<br><span class="text-slate-500">{{ $attendance->kelas?->name }}</span></td><td class="px-5 py-4">{{ $attendance->opener?->name ?? '-' }}</td><td class="px-5 py-4">{{ $attendance->records_count }}</td><td class="px-5 py-4">@include('partials.badge', ['slot' => $attendance->is_open ? 'aktif' : 'nonaktif'])</td></tr>@empty<tr><td colspan="5" class="px-5 py-10">@include('partials.empty-state')</td></tr>@endforelse</tbody></table></div><div class="mt-5">{{ $attendances->links() }}</div>
+@include('partials.page-header', [
+    'eyebrow' => 'Laporan',
+    'title' => 'Laporan Absensi',
+    'description' => 'Pantau sesi absensi dan rekap kehadiran mahasiswa berdasarkan semester, mata kuliah, dan kelas.'
+])
+
+<div class="grid grid-4" style="margin-bottom:18px;">
+    @include('partials.stat-card', [
+        'label' => 'Total Sesi',
+        'value' => $statistics['total_sessions'] ?? 0,
+        'icon' => '📅'
+    ])
+
+    @include('partials.stat-card', [
+        'label' => 'Sesi Terbuka',
+        'value' => $statistics['open_sessions'] ?? 0,
+        'icon' => '🟢'
+    ])
+
+    @include('partials.stat-card', [
+        'label' => 'Total Record',
+        'value' => $statistics['total_records'] ?? 0,
+        'icon' => '📝'
+    ])
+
+    @include('partials.stat-card', [
+        'label' => 'Hadir',
+        'value' => $statistics['hadir_records'] ?? 0,
+        'icon' => '✅'
+    ])
+</div>
+
+<div class="grid grid-4" style="margin-bottom:18px;">
+    @include('partials.stat-card', [
+        'label' => 'Izin',
+        'value' => $statistics['izin_records'] ?? 0,
+        'icon' => '🟡'
+    ])
+
+    @include('partials.stat-card', [
+        'label' => 'Alpha',
+        'value' => $statistics['alpha_records'] ?? 0,
+        'icon' => '🔴'
+    ])
+
+    @include('partials.stat-card', [
+        'label' => 'Sesi Ditutup',
+        'value' => $statistics['closed_sessions'] ?? 0,
+        'icon' => '🔒'
+    ])
+</div>
+
+<div class="toolbar">
+    <form method="GET" class="actions-inline">
+        <input
+            class="form-control"
+            style="width:220px;"
+            type="search"
+            name="search"
+            value="{{ request('search') }}"
+            placeholder="Cari kelas/matkul/asisten"
+        >
+
+        <select class="form-control" style="width:180px;" name="study_semester_id">
+            <option value="">Semua semester</option>
+            @foreach($studySemesters as $semester)
+                <option value="{{ $semester->id }}" @selected((string) request('study_semester_id') === (string) $semester->id)>
+                    {{ $semester->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <select class="form-control" style="width:220px;" name="course_id">
+            <option value="">Semua mata kuliah</option>
+            @foreach($courses as $course)
+                <option value="{{ $course->id }}" @selected((string) request('course_id') === (string) $course->id)>
+                    {{ $course->code }} - {{ $course->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <select class="form-control" style="width:200px;" name="class_id">
+            <option value="">Semua kelas</option>
+            @foreach($classes as $class)
+                <option value="{{ $class->id }}" @selected((string) request('class_id') === (string) $class->id)>
+                    {{ $class->course?->code ?? '-' }} - {{ $class->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <select class="form-control" style="width:160px;" name="session_status">
+            <option value="">Semua sesi</option>
+            <option value="open" @selected(request('session_status') === 'open')>
+                Terbuka
+            </option>
+            <option value="closed" @selected(request('session_status') === 'closed')>
+                Ditutup
+            </option>
+        </select>
+
+        <select class="form-control" style="width:160px;" name="record_status">
+            <option value="">Semua hadir</option>
+            <option value="hadir" @selected(request('record_status') === 'hadir')>
+                Hadir
+            </option>
+            <option value="izin" @selected(request('record_status') === 'izin')>
+                Izin
+            </option>
+            <option value="alpha" @selected(request('record_status') === 'alpha')>
+                Alpha
+            </option>
+        </select>
+
+        <input
+            class="form-control"
+            style="width:160px;"
+            type="date"
+            name="date_from"
+            value="{{ request('date_from') }}"
+        >
+
+        <input
+            class="form-control"
+            style="width:160px;"
+            type="date"
+            name="date_to"
+            value="{{ request('date_to') }}"
+        >
+
+        <button class="btn" type="submit">
+            Filter
+        </button>
+
+        @if(request()->hasAny(['search', 'study_semester_id', 'course_id', 'class_id', 'session_status', 'record_status', 'date_from', 'date_to']))
+            <a href="{{ route('admin.reports.attendances') }}" class="btn">
+                Reset
+            </a>
+        @endif
+    </form>
+
+    <a
+        href="{{ route('admin.reports.attendances.export', request()->query()) }}"
+        class="btn btn-primary"
+    >
+        Export CSV
+    </a>
+</div>
+
+<div class="table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Tanggal</th>
+                <th>Semester</th>
+                <th>Mata Kuliah / Kelas</th>
+                <th>Dibuka Oleh</th>
+                <th>Record</th>
+                <th>Rekap</th>
+                <th>Status Sesi</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @forelse($attendances as $attendance)
+                <tr>
+                    <td>
+                        <strong>{{ $attendance->session_date?->format('d M Y') ?? '-' }}</strong>
+                        <br>
+                        <small>
+                            Buka: {{ $attendance->opened_at?->format('H:i') ?? '-' }}
+                            |
+                            Tutup: {{ $attendance->closed_at?->format('H:i') ?? '-' }}
+                        </small>
+                    </td>
+
+                    <td>
+                        {{ $attendance->kelas?->course?->studySemester?->name ?? '-' }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ $attendance->kelas?->course?->code ?? '-' }}
+                            -
+                            {{ $attendance->kelas?->course?->name ?? '-' }}
+                        </strong>
+                        <br>
+                        <small>
+                            {{ $attendance->kelas?->name ?? '-' }}
+                        </small>
+                    </td>
+
+                    <td>
+                        {{ $attendance->opener?->name ?? '-' }}
+                    </td>
+
+                    <td>
+                        {{ $attendance->records_count }}
+                    </td>
+
+                    <td>
+                        <small>
+                            Hadir: {{ $attendance->hadir_count ?? 0 }}<br>
+                            Izin: {{ $attendance->izin_count ?? 0 }}<br>
+                            Alpha: {{ $attendance->alpha_count ?? 0 }}
+                        </small>
+                    </td>
+
+                    <td>
+                        <span class="badge {{ $attendance->is_open ? 'badge-green' : 'badge-red' }}">
+                            {{ $attendance->is_open ? 'Terbuka' : 'Ditutup' }}
+                        </span>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="7">
+                        Belum ada data absensi sesuai filter.
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top:16px;">
+    {{ $attendances->links() }}
+</div>
 @endsection

@@ -11,12 +11,27 @@ use Illuminate\View\View;
 
 class AcademicYearController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $search = trim((string) $request->input('search'));
+        $status = (string) $request->input('status', '');
+        $semester = (string) $request->input('semester', '');
+
         $academicYears = AcademicYear::query()
             ->withCount('courses')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where('year', 'like', "%{$search}%");
+            })
+            ->when(in_array($semester, ['ganjil', 'genap'], true), function ($query) use ($semester) {
+                $query->where('semester', $semester);
+            })
+            ->when($status !== '', function ($query) use ($status) {
+                $query->where('is_active', $status === '1');
+            })
+            ->orderByDesc('is_active')
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view('admin.academic-years.index', compact('academicYears'));
     }
@@ -29,7 +44,14 @@ class AcademicYearController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'year' => ['required', 'string', 'max:20'],
+            'year' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('academic_years', 'year')->where(function ($query) use ($request) {
+                    $query->where('semester', $request->input('semester'));
+                }),
+            ],
             'semester' => ['required', Rule::in(['ganjil', 'genap'])],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -38,18 +60,28 @@ class AcademicYearController extends Controller
             AcademicYear::query()->update(['is_active' => false]);
         }
 
-        AcademicYear::create([
+        $academicYear = AcademicYear::create([
             'year' => $validated['year'],
             'semester' => $validated['semester'],
             'is_active' => $request->boolean('is_active'),
         ]);
 
-        return redirect()->route('admin.tahun-akademik.index')->with('success', 'Tahun akademik berhasil ditambahkan.');
+        return redirect()
+            ->route('admin.tahun-akademik.show', $academicYear)
+            ->with('success', 'Tahun akademik berhasil ditambahkan.');
     }
 
     public function show(AcademicYear $academicYear): View
     {
-        $academicYear->load(['courses.classes.assistant']);
+        $academicYear->load([
+            'courses' => function ($query) {
+                $query->with(['studySemester', 'classes.assistant'])
+                    ->withCount('classes')
+                    ->orderBy('name');
+            },
+        ]);
+
+        $academicYear->loadCount('courses');
 
         return view('admin.academic-years.show', compact('academicYear'));
     }
@@ -62,13 +94,22 @@ class AcademicYearController extends Controller
     public function update(Request $request, AcademicYear $academicYear): RedirectResponse
     {
         $validated = $request->validate([
-            'year' => ['required', 'string', 'max:20'],
+            'year' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('academic_years', 'year')
+                    ->where(function ($query) use ($request) {
+                        $query->where('semester', $request->input('semester'));
+                    })
+                    ->ignore($academicYear->id),
+            ],
             'semester' => ['required', Rule::in(['ganjil', 'genap'])],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         if ($request->boolean('is_active')) {
-            AcademicYear::whereKeyNot($academicYear->id)->update(['is_active' => false]);
+            AcademicYear::where('id', '!=', $academicYear->id)->update(['is_active' => false]);
         }
 
         $academicYear->update([
@@ -77,15 +118,23 @@ class AcademicYearController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
-        return redirect()->route('admin.tahun-akademik.index')->with('success', 'Tahun akademik berhasil diperbarui.');
+        return redirect()
+            ->route('admin.tahun-akademik.show', $academicYear)
+            ->with('success', 'Tahun akademik berhasil diperbarui.');
     }
 
     public function destroy(AcademicYear $academicYear): RedirectResponse
     {
-        abort_if($academicYear->courses()->exists(), 422, 'Tahun akademik masih memiliki matakuliah.');
+        abort_if(
+            $academicYear->courses()->exists(),
+            422,
+            'Tahun akademik tidak bisa dihapus karena masih dipakai oleh mata kuliah.'
+        );
 
         $academicYear->delete();
 
-        return redirect()->route('admin.tahun-akademik.index')->with('success', 'Tahun akademik berhasil dihapus.');
+        return redirect()
+            ->route('admin.tahun-akademik.index')
+            ->with('success', 'Tahun akademik berhasil dihapus.');
     }
 }
