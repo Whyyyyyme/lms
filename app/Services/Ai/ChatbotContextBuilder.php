@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\Assignment;
 use App\Models\Material;
 use App\Models\User;
+use App\Services\StudentAccessService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -12,7 +13,7 @@ class ChatbotContextBuilder
 {
     public function build(User $user): array
     {
-        $classes = $this->resolveStudentClasses($user);
+        $classes = app(StudentAccessService::class)->classesForStudent($user);
         $classIds = $classes->pluck('id')->filter()->values();
 
         $materials = Material::query()
@@ -69,25 +70,6 @@ class ChatbotContextBuilder
             'materi' => $materials,
             'tugas' => $assignments,
         ];
-    }
-
-    private function resolveStudentClasses(User $user): Collection
-    {
-        $classes = collect();
-
-        if (method_exists($user, 'kelasDiikuti')) {
-            $classes = $user->kelasDiikuti()->with('course')->get();
-        }
-
-        if ($classes->isEmpty() && method_exists($user, 'kelas')) {
-            $kelas = $user->kelas()->with('course')->first();
-
-            if ($kelas) {
-                $classes = collect([$kelas]);
-            }
-        }
-
-        return $classes;
     }
 
     public function toSystemPrompt(User $user): string

@@ -54,15 +54,7 @@ class AttendanceController extends Controller
             'is_open' => $request->boolean('open_now'),
         ]);
 
-        foreach ($class->students as $student) {
-            AttendanceRecord::firstOrCreate([
-                'attendance_id' => $attendance->id,
-                'student_id' => $student->id,
-            ], [
-                'status' => 'alpha',
-                'checked_at' => null,
-            ]);
-        }
+        $this->syncAttendanceRecordsForClass($attendance, $class);
 
         if ($attendance->is_open) {
             $this->notifyAttendanceOpened($attendance);
@@ -93,7 +85,8 @@ class AttendanceController extends Controller
             'closed_at' => null,
         ]);
 
-        $this->notifyAttendanceOpened($attendance->fresh(['kelas.students']));
+        $this->syncAttendanceRecordsForClass($attendance->fresh(), $attendance->kelas);
+        $this->notifyAttendanceOpened($attendance->fresh(['kelas.course.studySemester', 'kelas.students.studySemester']));
 
         return back()->with('success', 'Sesi absensi berhasil dibuka.');
     }
@@ -135,12 +128,26 @@ class AttendanceController extends Controller
         return redirect()->route('assistant.attendances.index')->with('success', 'Sesi absensi berhasil dihapus.');
     }
 
+
+    private function syncAttendanceRecordsForClass(Attendance $attendance, $class): void
+    {
+        foreach ($this->classStudents($class) as $student) {
+            AttendanceRecord::firstOrCreate([
+                'attendance_id' => $attendance->id,
+                'student_id' => $student->id,
+            ], [
+                'status' => 'alpha',
+                'checked_at' => null,
+            ]);
+        }
+    }
+
     private function notifyAttendanceOpened(Attendance $attendance): void
     {
-        $attendance->loadMissing('kelas.students');
+        $attendance->loadMissing('kelas.course.studySemester', 'kelas.students.studySemester');
 
         $this->notifyUsers(
-            $attendance->kelas->students,
+            $this->classStudents($attendance->kelas),
             'attendance_opened',
             'Absensi Praktikum Dibuka',
             "Absensi untuk {$attendance->kelas->name} sudah dibuka. Silakan check-in sekarang.",

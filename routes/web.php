@@ -35,12 +35,16 @@ Route::get('/', function () {
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard');
 
-    Route::prefix('notifikasi')->name('notifications.')->group(function () {
-        Route::get('/', [NotificationController::class, 'index'])->name('index');
-        Route::patch('/{notification}/dibaca', [NotificationController::class, 'markAsRead'])->name('read');
-        Route::patch('/dibaca-semua', [NotificationController::class, 'markAllAsRead'])->name('read-all');
-        Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
-    });
+   Route::prefix('notifikasi')->name('notifications.')->group(function () {
+    Route::get('/', [NotificationController::class, 'index'])->name('index');
+
+    Route::get('/{notification}/buka', [NotificationController::class, 'open'])->name('open');
+
+    Route::patch('/dibaca-semua', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+    Route::patch('/{notification}/dibaca', [NotificationController::class, 'markAsRead'])->name('read');
+
+    Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
+});
 
     Route::prefix('admin')
         ->name('admin.')

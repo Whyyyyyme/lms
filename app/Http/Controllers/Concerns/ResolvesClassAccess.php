@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\PraktikumClass;
 use App\Models\User;
+use App\Services\StudentAccessService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -23,34 +24,16 @@ trait ResolvesClassAccess
 
     protected function studentClassIds(?User $user = null): array
     {
-        $user ??= auth()->user();
-
-        $manualClassIds = $user->kelasDiikuti()->pluck('classes.id')->all();
-
-        $semesterClassIds = [];
-        if ($user->study_semester_id) {
-            $semesterClassIds = PraktikumClass::query()
-                ->whereHas('course', fn ($query) => $query->where('study_semester_id', $user->study_semester_id))
-                ->pluck('classes.id')
-                ->all();
-        }
-
-        // Kompatibilitas data lama: kalau users.kelas_id masih terisi, tetap ikut dihitung.
-        if ($user->kelas_id) {
-            $manualClassIds[] = $user->kelas_id;
-        }
-
-        return array_values(array_unique(array_merge($manualClassIds, $semesterClassIds)));
+        return app(StudentAccessService::class)->classIdsForStudent($user ?? auth()->user());
     }
 
     protected function studentClasses(?User $user = null): Collection
     {
-        $user ??= auth()->user();
+        return app(StudentAccessService::class)->classesForStudent($user ?? auth()->user());
+    }
 
-        return PraktikumClass::query()
-            ->with(['course.studySemester', 'assistant'])
-            ->whereIn('id', $this->studentClassIds($user))
-            ->orderBy('name')
-            ->get();
+    protected function classStudents(PraktikumClass $class): Collection
+    {
+        return app(StudentAccessService::class)->studentsForClass($class);
     }
 }

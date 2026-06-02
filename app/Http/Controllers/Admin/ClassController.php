@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\PraktikumClass;
 use App\Models\StudySemester;
 use App\Models\User;
+use App\Services\StudentAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,10 @@ use Illuminate\View\View;
 
 class ClassController extends Controller
 {
+    public function __construct(private readonly StudentAccessService $studentAccess)
+    {
+    }
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->input('search'));
@@ -53,6 +58,8 @@ class ClassController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        $this->studentAccess->attachResolvedStudentCounts($classes->getCollection());
 
         return view('admin.classes.index', [
             'classes' => $classes,
@@ -135,7 +142,9 @@ class ClassController extends Controller
             'announcements',
         ]);
 
-        return view('admin.classes.show', compact('praktikumClass'));
+        $resolvedStudents = $this->studentAccess->studentsForClass($praktikumClass);
+
+        return view('admin.classes.show', compact('praktikumClass', 'resolvedStudents'));
     }
 
     public function edit(PraktikumClass $praktikumClass): View

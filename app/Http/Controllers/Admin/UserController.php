@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\StudySemester;
 use App\Models\User;
+use App\Notifications\AccountActivated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -42,6 +43,9 @@ class UserController extends Controller
         })
         ->when($request->filled('study_semester_id'), function ($query) use ($request) {
             $query->where('study_semester_id', $request->integer('study_semester_id'));
+        })
+        ->when($request->filled('status'), function ($query) use ($request) {
+            $query->where('is_active', $request->input('status') === '1');
         })
         ->when($request->filled('search'), function ($query) use ($request) {
             $search = $request->string('search');
@@ -150,6 +154,8 @@ class UserController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
+        $wasInactive = ! $user->is_active;
+
         $data = Arr::except($validated, ['role', 'password']);
         $data['is_active'] = $request->boolean('is_active');
 
@@ -168,6 +174,14 @@ class UserController extends Controller
         $user->update($data);
         $user->syncRoles([$validated['role']]);
         $this->syncStudentSemester($user, $validated['role'], $validated['study_semester_id'] ?? null);
+
+        if ($validated['role'] === 'mahasiswa' && $wasInactive && $user->is_active) {
+            try {
+                $user->notify(new AccountActivated());
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return redirect()->route('admin.users.index')->with('success', 'User berhasil diperbarui.');
     }

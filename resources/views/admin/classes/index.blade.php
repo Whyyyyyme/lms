@@ -75,7 +75,7 @@
                 <th>Asisten</th>
                 <th>Jadwal</th>
                 <th>Konten</th>
-                <th>Mahasiswa Manual</th>
+                <th>Mahasiswa</th>
                 <th>Status</th>
                 <th>Aksi</th>
             </tr>
@@ -117,7 +117,9 @@
                     </td>
 
                     <td>
-                        {{ $class->students_count }}
+                        <strong>{{ $class->resolved_students_count ?? 0 }}</strong>
+                        <br>
+                        <small>Manual: {{ $class->students_count }}</small>
                     </td>
 
                     <td>

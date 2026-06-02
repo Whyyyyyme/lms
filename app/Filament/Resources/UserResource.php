@@ -6,6 +6,7 @@ use BackedEnum;
 use UnitEnum;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\PraktikumClass;
+use App\Models\StudySemester;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -50,8 +51,14 @@ class UserResource extends Resource
                     ->searchable()
                     ->multiple()
                     ->required(),
+                Forms\Components\Select::make('study_semester_id')
+                    ->label('Semester Mahasiswa')
+                    ->options(fn () => StudySemester::query()->active()->orderBy('level')->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload(),
                 Forms\Components\Select::make('kelas_id')
-                    ->label('Kelas Utama')
+                    ->label('Kelas Utama Lama (opsional)')
+                    ->helperText('Dipertahankan hanya untuk kompatibilitas data lama. Akses mahasiswa baru dihitung dari semester.')
                     ->options(fn () => PraktikumClass::query()->with('course')->get()->mapWithKeys(fn ($class) => [$class->id => $class->course?->name.' - '.$class->name]))
                     ->searchable()
                     ->preload(),
@@ -67,7 +74,8 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('nim_nip')->label('NIM/NIP')->searchable(),
                 Tables\Columns\TextColumn::make('email')->label('Email')->searchable(),
                 Tables\Columns\TextColumn::make('roles.name')->label('Role')->badge(),
-                Tables\Columns\TextColumn::make('kelas.name')->label('Kelas'),
+                Tables\Columns\TextColumn::make('studySemester.name')->label('Semester'),
+                Tables\Columns\TextColumn::make('kelas.name')->label('Kelas Lama'),
                 Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->label('Dibuat')->dateTime('d M Y H:i')->sortable(),
             ])

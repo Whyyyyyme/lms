@@ -50,7 +50,7 @@ class AnnouncementController extends Controller
         ]);
 
         $this->notifyUsers(
-            $class->students,
+            $this->classStudents($class),
             'announcement_published',
             'Pengumuman Baru',
             "Pengumuman baru: {$announcement->title}",

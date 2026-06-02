@@ -65,8 +65,8 @@
 
     <div class="grid grid-4" style="margin-top:16px;">
         <div>
-            <p><strong>Mahasiswa Semester:</strong></p>
-            <p>{{ $praktikumClass->course?->studySemester?->students?->count() ?? 0 }}</p>
+            <p><strong>Total Mahasiswa Akses:</strong></p>
+            <p>{{ $resolvedStudents->count() }}</p>
         </div>
 
         <div>
@@ -105,7 +105,7 @@
     <table>
         <thead>
             <tr>
-                <th>Mahasiswa Manual / Khusus</th>
+                <th>Mahasiswa yang Bisa Mengakses</th>
                 <th>NIM</th>
                 <th>Semester</th>
                 <th>Email</th>
@@ -114,7 +114,7 @@
         </thead>
 
         <tbody>
-            @forelse($praktikumClass->students as $student)
+            @forelse($resolvedStudents as $student)
                 <tr>
                     <td>
                         <strong>{{ $student->name }}</strong>
@@ -135,7 +135,7 @@
             @empty
                 <tr>
                     <td colspan="5">
-                        Tidak ada mahasiswa manual. Mahasiswa tetap bisa mengakses kelas ini jika semester mereka sama dengan semester mata kuliah.
+                        Belum ada mahasiswa aktif yang cocok dengan semester mata kuliah atau pembagian manual kelas ini.
                     </td>
                 </tr>
             @endforelse
