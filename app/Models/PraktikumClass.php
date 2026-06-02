@@ -22,12 +22,17 @@ class PraktikumClass extends Model
         'room',
         'schedule',
         'is_active',
+        'class_type',
+        'student_group',
+        'group_label',
+        'group_members',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'group_members' => 'array',
         ];
     }
 

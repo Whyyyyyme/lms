@@ -3,10 +3,37 @@
 @section('title', 'Detail Kelas Praktikum')
 
 @section('content')
+@php
+    $automaticStudents = $automaticStudents ?? collect();
+
+    $classTypeLabel = match ($praktikumClass->class_type ?? 'regular') {
+        'combined' => 'Gabungan',
+        default => 'Reguler',
+    };
+
+    $groupMembers = collect($praktikumClass->group_members ?? [])
+        ->filter()
+        ->values();
+
+    $groupDisplay = '-';
+
+    if (($praktikumClass->class_type ?? 'regular') === 'regular') {
+        $groupDisplay = $praktikumClass->student_group
+            ? 'Kelas ' . $praktikumClass->student_group
+            : '-';
+    }
+
+    if (($praktikumClass->class_type ?? 'regular') === 'combined') {
+        $groupDisplay = $groupMembers->isNotEmpty()
+            ? $groupMembers->map(fn ($group) => 'Kelas ' . $group)->implode(', ')
+            : '-';
+    }
+@endphp
+
 @include('partials.page-header', [
     'eyebrow' => 'Admin',
     'title' => 'Detail Kelas Praktikum',
-    'description' => 'Detail kelas, mata kuliah, asisten, mahasiswa, materi, tugas, dan absensi.'
+    'description' => 'Detail kelas, mata kuliah, asisten, mahasiswa otomatis, mahasiswa manual, materi, tugas, dan absensi.'
 ])
 
 <div class="form-card">
@@ -65,10 +92,31 @@
 
     <div class="grid grid-4" style="margin-top:16px;">
         <div>
-            <p><strong>Mahasiswa Semester:</strong></p>
-            <p>{{ $praktikumClass->course?->studySemester?->students?->count() ?? 0 }}</p>
+            <p><strong>Tipe Kelas:</strong></p>
+            <p>
+                <span class="badge {{ ($praktikumClass->class_type ?? 'regular') === 'combined' ? 'badge-blue' : 'badge-green' }}">
+                    {{ $classTypeLabel }}
+                </span>
+            </p>
         </div>
 
+        <div>
+            <p><strong>Rombel:</strong></p>
+            <p>{{ $groupDisplay }}</p>
+        </div>
+
+        <div>
+            <p><strong>Label Gabungan:</strong></p>
+            <p>{{ $praktikumClass->group_label ?? '-' }}</p>
+        </div>
+
+        <div>
+            <p><strong>Mahasiswa Otomatis:</strong></p>
+            <p>{{ $automaticStudents->count() }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-top:16px;">
         <div>
             <p><strong>Mahasiswa Manual:</strong></p>
             <p>{{ $praktikumClass->students_count }}</p>
@@ -82,6 +130,11 @@
         <div>
             <p><strong>Tugas:</strong></p>
             <p>{{ $praktikumClass->assignments_count }}</p>
+        </div>
+
+        <div>
+            <p><strong>Absensi:</strong></p>
+            <p>{{ $praktikumClass->attendances_count }}</p>
         </div>
     </div>
 
@@ -102,12 +155,82 @@
 </div>
 
 <div class="table-card" style="margin-top:16px;">
+    <div style="padding:16px 16px 0;">
+        <p class="mb-1 text-sm font-semibold text-slate-700">
+            Mahasiswa Otomatis Berdasarkan Semester + Rombel
+        </p>
+
+        <p class="mb-3 text-xs text-slate-500">
+            Daftar ini dihitung otomatis dari semester mata kuliah dan rombel kelas praktikum.
+            Untuk kelas reguler, sistem mengambil mahasiswa sesuai satu rombel.
+            Untuk kelas gabungan, sistem mengambil mahasiswa dari rombel yang digabung.
+        </p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Mahasiswa</th>
+                <th>NIM</th>
+                <th>Semester</th>
+                <th>Rombel</th>
+                <th>Email</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @forelse($automaticStudents as $student)
+                <tr>
+                    <td>
+                        <strong>{{ $student->name }}</strong>
+                    </td>
+
+                    <td>{{ $student->nim_nip ?? '-' }}</td>
+
+                    <td>{{ $student->studySemester?->name ?? '-' }}</td>
+
+                    <td>
+                        {{ $student->student_group ? 'Kelas ' . $student->student_group : '-' }}
+                    </td>
+
+                    <td>{{ $student->email }}</td>
+
+                    <td>
+                        <span class="badge {{ $student->is_active ? 'badge-green' : 'badge-red' }}">
+                            {{ $student->is_active ? 'Aktif' : 'Nonaktif' }}
+                        </span>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="6">
+                        Belum ada mahasiswa otomatis untuk semester dan rombel kelas ini.
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
+<div class="table-card" style="margin-top:16px;">
+    <div style="padding:16px 16px 0;">
+        <p class="mb-1 text-sm font-semibold text-slate-700">
+            Mahasiswa Manual / Khusus
+        </p>
+
+        <p class="mb-3 text-xs text-slate-500">
+            Daftar ini hanya untuk tambahan khusus. Akses utama mahasiswa seharusnya dihitung otomatis dari semester dan rombel.
+        </p>
+    </div>
+
     <table>
         <thead>
             <tr>
                 <th>Mahasiswa Manual / Khusus</th>
                 <th>NIM</th>
                 <th>Semester</th>
+                <th>Rombel</th>
                 <th>Email</th>
                 <th>Status</th>
             </tr>
@@ -124,6 +247,10 @@
 
                     <td>{{ $student->studySemester?->name ?? '-' }}</td>
 
+                    <td>
+                        {{ $student->student_group ? 'Kelas ' . $student->student_group : '-' }}
+                    </td>
+
                     <td>{{ $student->email }}</td>
 
                     <td>
@@ -134,8 +261,8 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5">
-                        Tidak ada mahasiswa manual. Mahasiswa tetap bisa mengakses kelas ini jika semester mereka sama dengan semester mata kuliah.
+                    <td colspan="6">
+                        Tidak ada mahasiswa manual. Mahasiswa otomatis tetap bisa mengakses kelas ini jika semester dan rombel mereka sesuai.
                     </td>
                 </tr>
             @endforelse

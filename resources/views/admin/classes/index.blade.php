@@ -3,10 +3,19 @@
 @section('title', 'Kelola Kelas Praktikum')
 
 @section('content')
+@php
+    $classTypes = $classTypes ?? [
+        'regular' => 'Reguler',
+        'combined' => 'Gabungan',
+    ];
+
+    $studentGroups = $studentGroups ?? ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+@endphp
+
 @include('partials.page-header', [
     'eyebrow' => 'Admin',
     'title' => 'Kelola Kelas Praktikum',
-    'description' => 'Kelola kelas, jadwal, ruangan, asisten, dan pembagian mahasiswa khusus.'
+    'description' => 'Kelola kelas praktikum berdasarkan semester, rombel, mata kuliah, jadwal, ruangan, dan asisten.'
 ])
 
 <div class="toolbar">
@@ -47,6 +56,24 @@
             @endforeach
         </select>
 
+        <select class="form-control" style="width:150px;" name="class_type">
+            <option value="">Semua tipe</option>
+            @foreach($classTypes as $value => $label)
+                <option value="{{ $value }}" @selected(request('class_type') === $value)>
+                    {{ $label }}
+                </option>
+            @endforeach
+        </select>
+
+        <select class="form-control" style="width:150px;" name="student_group">
+            <option value="">Semua rombel</option>
+            @foreach($studentGroups as $group)
+                <option value="{{ $group }}" @selected(request('student_group') === $group)>
+                    Kelas {{ $group }}
+                </option>
+            @endforeach
+        </select>
+
         <select class="form-control" style="width:150px;" name="status">
             <option value="">Semua status</option>
             <option value="1" @selected(request('status') === '1')>Aktif</option>
@@ -55,7 +82,7 @@
 
         <button class="btn" type="submit">Filter</button>
 
-        @if(request()->hasAny(['search', 'study_semester_id', 'course_id', 'assistant_id', 'status']))
+        @if(request()->hasAny(['search', 'study_semester_id', 'course_id', 'assistant_id', 'class_type', 'student_group', 'status']))
             <a href="{{ route('admin.kelas.index') }}" class="btn">Reset</a>
         @endif
     </form>
@@ -72,10 +99,11 @@
                 <th>Kelas</th>
                 <th>Mata Kuliah</th>
                 <th>Semester</th>
+                <th>Tipe / Rombel</th>
                 <th>Asisten</th>
                 <th>Jadwal</th>
                 <th>Konten</th>
-                <th>Mahasiswa Manual</th>
+                <th>Mahasiswa Otomatis</th>
                 <th>Status</th>
                 <th>Aksi</th>
             </tr>
@@ -83,6 +111,13 @@
 
         <tbody>
             @forelse($classes as $class)
+                @php
+                    $classType = $class->class_type ?? 'regular';
+                    $classTypeLabel = $class->class_type_label ?? ($classType === 'combined' ? 'Gabungan' : 'Reguler');
+                    $groupDisplay = $class->group_display ?? 'Belum diatur';
+                    $automaticStudentsCount = $class->automatic_students_count ?? 0;
+                @endphp
+
                 <tr>
                     <td>
                         <strong>{{ $class->name }}</strong>
@@ -98,6 +133,22 @@
 
                     <td>
                         {{ $class->course?->studySemester?->name ?? '-' }}
+                    </td>
+
+                    <td>
+                        <span class="badge {{ $classType === 'combined' ? 'badge-red' : 'badge-green' }}">
+                            {{ $classTypeLabel }}
+                        </span>
+
+                        <br>
+
+                        <small>
+                            @if($classType === 'combined' && $class->group_label)
+                                {{ $class->group_label }}:
+                            @endif
+
+                            {{ $groupDisplay }}
+                        </small>
                     </td>
 
                     <td>
@@ -117,7 +168,15 @@
                     </td>
 
                     <td>
-                        {{ $class->students_count }}
+                        <strong>{{ $automaticStudentsCount }}</strong>
+                        <br>
+                        <small>
+                            @if($classType === 'regular')
+                                Semester + rombel
+                            @else
+                                Semester + gabungan
+                            @endif
+                        </small>
                     </td>
 
                     <td>
@@ -145,7 +204,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9">
+                    <td colspan="10">
                         Belum ada kelas praktikum.
                     </td>
                 </tr>

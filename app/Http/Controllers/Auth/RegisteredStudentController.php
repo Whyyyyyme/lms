@@ -19,6 +19,7 @@ class RegisteredStudentController extends Controller
             'studySemesters' => StudySemester::active()
                 ->orderBy('level')
                 ->get(),
+            'studentGroups' => ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
         ]);
     }
 
@@ -38,6 +39,11 @@ class RegisteredStudentController extends Controller
                 'required',
                 'exists:study_semesters,id',
             ],
+            'student_group' => [
+                'required',
+                'string',
+                'in:A,B,C,D,E,F,G,H',
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
@@ -48,6 +54,8 @@ class RegisteredStudentController extends Controller
             'email.unique' => 'Email sudah terdaftar.',
             'email.not_regex' => 'Gunakan email aktif/asli, bukan email dummy seperti @lms.test atau @example.com.',
             'study_semester_id.required' => 'Semester mahasiswa wajib dipilih.',
+            'student_group.required' => 'Kelas/Rombel mahasiswa wajib dipilih.',
+            'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
             'password.required' => 'Password LMS wajib diisi.',
             'password.min' => 'Password LMS minimal 8 karakter.',
             'password.confirmed' => 'Konfirmasi password LMS tidak cocok.',
@@ -60,6 +68,7 @@ class RegisteredStudentController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => 'mahasiswa',
             'study_semester_id' => $validated['study_semester_id'],
+            'student_group' => $validated['student_group'],
             'is_active' => false,
             'email_verified_at' => null,
         ]);

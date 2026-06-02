@@ -100,6 +100,28 @@
                     </div>
 
                     <div>
+                        <label for="student_group" class="mb-1 block text-sm font-medium text-slate-700">
+                            Kelas/Rombel Mahasiswa
+                        </label>
+                        <select
+                            id="student_group"
+                            name="student_group"
+                            required
+                            class="block w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        >
+                            <option value="">Pilih kelas/rombel</option>
+                            @foreach ($studentGroups as $group)
+                                <option value="{{ $group }}" @selected(old('student_group') === $group)>
+                                    Kelas {{ $group }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Pilih kelas/rombel sesuai kelas perkuliahan kamu, misalnya A, B, C, sampai H.
+                        </p>
+                    </div>
+
+                    <div>
                         <label for="password" class="mb-1 block text-sm font-medium text-slate-700">
                             Password LMS
                         </label>
