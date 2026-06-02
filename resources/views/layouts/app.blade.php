@@ -230,6 +230,9 @@
             .user-chip { padding: 5px; }
             .user-name { display: none; }
         }
+        [x-cloak] {
+            display: none !important;
+        }
     </style>
 </head>
 <body>

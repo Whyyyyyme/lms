@@ -132,6 +132,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/materi/mata-kuliah/{course}', [StudentMaterialController::class, 'course'])->name('materials.course');
 
             Route::get('/materi/{material}', [StudentMaterialController::class, 'show'])->name('materials.show');
+            Route::get('/materi/{material}/preview', [StudentMaterialController::class, 'preview'])->name('materials.preview');
             Route::get('/materi/{material}/download', [StudentMaterialController::class, 'download'])->name('materials.download');
 
             Route::get('/tugas', [StudentAssignmentController::class, 'index'])->name('assignments.index');

@@ -34,55 +34,73 @@ class MaterialController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'class_id' => ['required', 'exists:classes,id'],
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'type' => ['required', Rule::in(['pdf', 'video', 'dokumen', 'link'])],
-            'file' => ['nullable', 'file', 'max:102400'],
-            'link' => ['nullable', 'url', 'max:255'],
-            'published_at' => ['nullable', 'date'],
-        ], [
-            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
-            'file.max' => 'Ukuran file maksimal 100 MB.',
-            'file.file' => 'Upload harus berupa file yang valid.',
-        ]);
+   public function store(Request $request): RedirectResponse
+{
+    $validated = $request->validate([
+        'class_id' => ['required', 'exists:classes,id'],
+        'title' => ['required', 'string', 'max:255'],
+        'description' => ['nullable', 'string'],
+        'type' => ['required', Rule::in(['pdf', 'link'])],
+        'file' => ['required_if:type,pdf', 'nullable', 'file', 'mimes:pdf', 'max:102400'],
+        'link' => ['required_if:type,link', 'nullable', 'url', 'max:1000'],
+        'published_at' => ['nullable', 'date'],
+    ], [
+        'type.required' => 'Tipe materi wajib dipilih.',
+        'type.in' => 'Tipe materi hanya boleh PDF atau Link Video.',
 
-        $class = $this->assistantClassOrFail((int) $validated['class_id']);
+        'file.required_if' => 'File PDF wajib diupload jika tipe materi adalah PDF.',
+        'file.uploaded' => 'File gagal diunggah. Cek upload_max_filesize, post_max_size, dan upload_tmp_dir di php.ini.',
+        'file.mimes' => 'File harus berformat PDF.',
+        'file.max' => 'Ukuran file maksimal 100 MB.',
+        'file.file' => 'Upload harus berupa file yang valid.',
 
-        $filePath = null;
-        if ($request->hasFile('file')) {
-            $filePath = $request->file('file')->store('materials', 'public');
-        } elseif ($validated['type'] === 'link') {
-            $filePath = $validated['link'] ?? null;
-        }
+        'link.required_if' => 'Link video wajib diisi jika tipe materi adalah Link Video.',
+        'link.url' => 'Link video harus berupa URL yang valid.',
+    ]);
 
-        $material = Material::create([
-            'class_id' => $class->id,
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'type' => $validated['type'],
-            'file_path' => $filePath,
-            'created_by' => auth()->id(),
-            'published_at' => $validated['published_at'] ?? now(),
-        ]);
+    $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
-        $this->notifyUsers(
-            $this->classStudents($class),
-            'material_uploaded',
-            'Materi Baru Diunggah',
-            "Materi {$material->title} telah tersedia di {$class->name}.",
-            ['material_id' => $material->id, 'class_id' => $class->id]
-        );
+    $filePath = null;
 
-        return redirect()->route('assistant.materi.index')->with('success', 'Materi berhasil diunggah.');
+    if ($validated['type'] === 'pdf') {
+        $filePath = $request->file('file')->store('materials', 'public');
     }
+
+    if ($validated['type'] === 'link') {
+        $filePath = $validated['link'];
+    }
+
+    $material = Material::create([
+        'class_id' => $class->id,
+        'title' => $validated['title'],
+        'description' => $validated['description'] ?? null,
+        'type' => $validated['type'],
+        'file_path' => $filePath,
+        'created_by' => auth()->id(),
+        'published_at' => $validated['published_at'] ?? now(),
+    ]);
+
+    $this->notifyUsers(
+        $this->classStudents($class),
+        'material_uploaded',
+        'Materi Baru Diunggah',
+        "Materi {$material->title} telah tersedia di {$class->name}.",
+        [
+            'material_id' => $material->id,
+            'class_id' => $class->id,
+            'url' => route('student.materials.show', $material),
+        ]
+    );
+
+    return redirect()
+        ->route('assistant.materi.index')
+        ->with('success', 'Materi berhasil ditambahkan.');
+}
 
     public function show(Material $material): View
     {
         $this->assistantClassOrFail((int) $material->class_id);
+
         $material->load(['kelas.course', 'creator']);
 
         return view('assistant.materials.show', compact('material'));
@@ -108,24 +126,40 @@ class MaterialController extends Controller
             'description' => ['nullable', 'string'],
             'type' => ['required', Rule::in(['pdf', 'video', 'dokumen', 'link'])],
             'file' => ['nullable', 'file', 'max:102400'],
-            'link' => ['nullable', 'url', 'max:255'],
+            'link' => ['nullable', 'url', 'max:1000'],
             'published_at' => ['nullable', 'date'],
         ], [
-            'file.uploaded' => 'File gagal diunggah. Biasanya karena ukuran file melebihi upload_max_filesize/post_max_size di php.ini, atau file terlalu besar.',
+            'file.uploaded' => 'File gagal diunggah. Cek upload_max_filesize, post_max_size, dan upload_tmp_dir di php.ini.',
             'file.max' => 'Ukuran file maksimal 100 MB.',
             'file.file' => 'Upload harus berupa file yang valid.',
+            'link.url' => 'Link materi harus berupa URL yang valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
+
         $filePath = $material->file_path;
 
         if ($request->hasFile('file')) {
             if ($filePath && ! str_starts_with($filePath, 'http')) {
                 Storage::disk('public')->delete($filePath);
             }
+
             $filePath = $request->file('file')->store('materials', 'public');
-        } elseif ($validated['type'] === 'link' && filled($validated['link'] ?? null)) {
+        } elseif (filled($validated['link'] ?? null)) {
+            if ($filePath && ! str_starts_with($filePath, 'http')) {
+                Storage::disk('public')->delete($filePath);
+            }
+
             $filePath = $validated['link'];
+        }
+
+        if (blank($filePath)) {
+            return back()
+                ->withErrors([
+                    'file' => 'Silakan upload file atau isi link materi.',
+                    'link' => 'Silakan upload file atau isi link materi.',
+                ])
+                ->withInput();
         }
 
         $material->update([
@@ -137,7 +171,9 @@ class MaterialController extends Controller
             'published_at' => $validated['published_at'] ?? $material->published_at,
         ]);
 
-        return redirect()->route('assistant.materi.index')->with('success', 'Materi berhasil diperbarui.');
+        return redirect()
+            ->route('assistant.materi.index')
+            ->with('success', 'Materi berhasil diperbarui.');
     }
 
     public function destroy(Material $material): RedirectResponse
@@ -150,6 +186,8 @@ class MaterialController extends Controller
 
         $material->delete();
 
-        return redirect()->route('assistant.materi.index')->with('success', 'Materi berhasil dihapus.');
+        return redirect()
+            ->route('assistant.materi.index')
+            ->with('success', 'Materi berhasil dihapus.');
     }
 }
