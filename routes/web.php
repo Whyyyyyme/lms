@@ -10,8 +10,8 @@ use App\Http\Controllers\Admin\StudySemesterController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Assistant\AnnouncementController as AssistantAnnouncementController;
 use App\Http\Controllers\Assistant\AssignmentController as AssistantAssignmentController;
-use App\Http\Controllers\Assistant\AttendanceController as AssistantAttendanceController;
 use App\Http\Controllers\Assistant\AssistantDashboardController;
+use App\Http\Controllers\Assistant\AttendanceController as AssistantAttendanceController;
 use App\Http\Controllers\Assistant\ExportController as AssistantExportController;
 use App\Http\Controllers\Assistant\MaterialController as AssistantMaterialController;
 use App\Http\Controllers\Assistant\SubmissionController as AssistantSubmissionController;
@@ -35,16 +35,16 @@ Route::get('/', function () {
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard');
 
-   Route::prefix('notifikasi')->name('notifications.')->group(function () {
-    Route::get('/', [NotificationController::class, 'index'])->name('index');
+    Route::prefix('notifikasi')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
 
-    Route::get('/{notification}/buka', [NotificationController::class, 'open'])->name('open');
+        Route::get('/{notification}/buka', [NotificationController::class, 'open'])->name('open');
 
-    Route::patch('/dibaca-semua', [NotificationController::class, 'markAllAsRead'])->name('read-all');
-    Route::patch('/{notification}/dibaca', [NotificationController::class, 'markAsRead'])->name('read');
+        Route::patch('/dibaca-semua', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+        Route::patch('/{notification}/dibaca', [NotificationController::class, 'markAsRead'])->name('read');
 
-    Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
-});
+        Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
+    });
 
     Route::prefix('admin')
         ->name('admin.')
@@ -128,6 +128,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/dashboard', [MahasiswaDashboardController::class, 'index'])->name('dashboard');
 
             Route::get('/materi', [StudentMaterialController::class, 'index'])->name('materials.index');
+
+            Route::get('/materi/mata-kuliah/{course}', [StudentMaterialController::class, 'course'])->name('materials.course');
+
             Route::get('/materi/{material}', [StudentMaterialController::class, 'show'])->name('materials.show');
             Route::get('/materi/{material}/download', [StudentMaterialController::class, 'download'])->name('materials.download');
 
@@ -148,6 +151,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         });
 });
 
-if (file_exists(__DIR__ . '/auth.php')) {
-    require __DIR__ . '/auth.php';
+if (file_exists(__DIR__.'/auth.php')) {
+    require __DIR__.'/auth.php';
 }
