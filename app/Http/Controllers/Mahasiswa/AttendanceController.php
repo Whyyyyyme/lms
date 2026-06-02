@@ -16,7 +16,12 @@ class AttendanceController extends Controller
     public function index(): View
     {
         $attendances = Attendance::query()
-            ->with(['kelas.course', 'records' => fn ($query) => $query->where('student_id', auth()->id())])
+            ->with([
+                'kelas.course.studySemester',
+                'records' => function ($query) {
+                    $query->where('student_id', auth()->id());
+                },
+            ])
             ->whereIn('class_id', $this->studentClassIds())
             ->latest('session_date')
             ->paginate(10);
@@ -26,8 +31,27 @@ class AttendanceController extends Controller
 
     public function checkIn(Attendance $attendance): RedirectResponse
     {
-        abort_unless(in_array($attendance->class_id, $this->studentClassIds(), true), 403);
-        abort_unless($attendance->is_open, 422, 'Sesi absensi belum dibuka atau sudah ditutup.');
+        abort_unless(
+            in_array((int) $attendance->class_id, $this->studentClassIds(), true),
+            403
+        );
+
+        if (! $attendance->is_open) {
+            return back()->with('error', 'Sesi absensi belum dibuka atau sudah ditutup.');
+        }
+
+        $record = AttendanceRecord::query()
+            ->where('attendance_id', $attendance->id)
+            ->where('student_id', auth()->id())
+            ->first();
+
+        if ($record?->status === 'hadir') {
+            return back()->with('status', 'Kamu sudah melakukan check-in absensi.');
+        }
+
+        if ($record?->status === 'izin') {
+            return back()->with('error', 'Status kamu sudah ditandai izin oleh asisten. Hubungi asisten jika perlu koreksi.');
+        }
 
         AttendanceRecord::updateOrCreate(
             [

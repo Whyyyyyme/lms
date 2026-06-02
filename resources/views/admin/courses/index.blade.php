@@ -3,6 +3,7 @@
 @section('title', 'Kelola Mata Kuliah')
 
 @section('content')
+
 @include('partials.page-header', [
     'eyebrow' => 'Admin',
     'title' => 'Kelola Mata Kuliah',
@@ -22,6 +23,7 @@
 
         <select class="form-control" style="width:190px;" name="study_semester_id">
             <option value="">Semua semester</option>
+
             @foreach($studySemesters as $semester)
                 <option value="{{ $semester->id }}" @selected((string) request('study_semester_id') === (string) $semester->id)>
                     {{ $semester->name }}
@@ -31,6 +33,7 @@
 
         <select class="form-control" style="width:210px;" name="academic_year_id">
             <option value="">Semua tahun akademik</option>
+
             @foreach($academicYears as $year)
                 <option value="{{ $year->id }}" @selected((string) request('academic_year_id') === (string) $year->id)>
                     {{ $year->year }} - {{ ucfirst($year->semester) }}
@@ -88,6 +91,7 @@
 
                     <td>
                         {{ $course->academicYear?->year ?? '-' }}
+
                         @if($course->academicYear)
                             - {{ ucfirst($course->academicYear->semester) }}
                         @endif
@@ -116,12 +120,10 @@
                             Edit
                         </a>
 
-                        @if($course->classes_count === 0)
-                            @include('partials.delete-button', [
-                                'action' => route('admin.matakuliah.destroy', $course),
-                                'confirm' => 'Yakin ingin menghapus mata kuliah ini?'
-                            ])
-                        @endif
+                        @include('partials.delete-button', [
+                            'action' => route('admin.matakuliah.destroy', $course),
+                            'confirm' => 'Yakin ingin menghapus mata kuliah ini?'
+                        ])
                     </td>
                 </tr>
             @empty
@@ -138,4 +140,5 @@
 <div style="margin-top:16px;">
     {{ $courses->links() }}
 </div>
+
 @endsection

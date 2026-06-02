@@ -116,6 +116,28 @@
                     $classTypeLabel = $class->class_type_label ?? ($classType === 'combined' ? 'Gabungan' : 'Reguler');
                     $groupDisplay = $class->group_display ?? 'Belum diatur';
                     $automaticStudentsCount = $class->automatic_students_count ?? 0;
+
+                    $materialsCount = (int) ($class->materials_count ?? 0);
+                    $assignmentsCount = (int) ($class->assignments_count ?? 0);
+                    $attendancesCount = (int) ($class->attendances_count ?? 0);
+                    $announcementsCount = (int) ($class->announcements_count ?? 0);
+
+                    $canDelete = $materialsCount === 0
+                        && $assignmentsCount === 0
+                        && $attendancesCount === 0
+                        && $announcementsCount === 0;
+
+                    $deleteReason = 'Kelas tidak bisa dihapus karena masih memiliki data terkait.';
+
+                    if ($materialsCount > 0) {
+                        $deleteReason = 'Tidak bisa hapus karena kelas masih memiliki materi.';
+                    } elseif ($assignmentsCount > 0) {
+                        $deleteReason = 'Tidak bisa hapus karena kelas masih memiliki tugas.';
+                    } elseif ($attendancesCount > 0) {
+                        $deleteReason = 'Tidak bisa hapus karena kelas masih memiliki absensi.';
+                    } elseif ($announcementsCount > 0) {
+                        $deleteReason = 'Tidak bisa hapus karena kelas masih memiliki pengumuman.';
+                    }
                 @endphp
 
                 <tr>
@@ -161,9 +183,9 @@
 
                     <td>
                         <small>
-                            Materi: {{ $class->materials_count }}<br>
-                            Tugas: {{ $class->assignments_count }}<br>
-                            Absensi: {{ $class->attendances_count }}
+                            Materi: {{ $materialsCount }}<br>
+                            Tugas: {{ $assignmentsCount }}<br>
+                            Absensi: {{ $attendancesCount }}
                         </small>
                     </td>
 
@@ -185,21 +207,39 @@
                         </span>
                     </td>
 
-                    <td class="actions-inline">
-                        <a class="btn btn-sm" href="{{ route('admin.kelas.show', $class) }}">
-                            Detail
-                        </a>
+                    <td>
+                        <div class="actions-inline">
+                            <a class="btn btn-sm" href="{{ route('admin.kelas.show', $class) }}">
+                                Detail
+                            </a>
 
-                        <a class="btn btn-sm" href="{{ route('admin.kelas.edit', $class) }}">
-                            Edit
-                        </a>
+                            <a class="btn btn-sm" href="{{ route('admin.kelas.edit', $class) }}">
+                                Edit
+                            </a>
 
-                        @if($class->materials_count === 0 && $class->assignments_count === 0 && $class->attendances_count === 0)
-                            @include('partials.delete-button', [
-                                'action' => route('admin.kelas.destroy', $class),
-                                'confirm' => 'Yakin ingin menghapus kelas ini?'
-                            ])
-                        @endif
+                            @if($canDelete)
+                                @include('partials.delete-button', [
+                                    'action' => route('admin.kelas.destroy', $class),
+                                    'confirm' => 'Yakin ingin menghapus kelas ini?'
+                                ])
+                            @else
+                                <button
+                                    type="button"
+                                    class="btn btn-sm"
+                                    style="cursor:not-allowed; opacity:.55;"
+                                    disabled
+                                    title="{{ $deleteReason }}"
+                                >
+                                    Hapus
+                                </button>
+                            @endif
+                        </div>
+
+                        @unless($canDelete)
+                            <small class="mt-1 block text-slate-400">
+                                {{ $deleteReason }}
+                            </small>
+                        @endunless
                     </td>
                 </tr>
             @empty
