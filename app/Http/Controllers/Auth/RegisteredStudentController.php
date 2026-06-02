@@ -45,6 +45,7 @@ class RegisteredStudentController extends Controller
                 'in:A,B,C,D,E,F,G,H',
             ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'study_semester_id' => ['required', Rule::exists('study_semesters', 'id')->where('is_active', true)],
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
             'nim_nip.required' => 'NIM wajib diisi.',
@@ -52,7 +53,9 @@ class RegisteredStudentController extends Controller
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email sudah terdaftar.',
-            'email.not_regex' => 'Gunakan email aktif/asli, bukan email dummy seperti @lms.test atau @example.com.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sama.',
             'study_semester_id.required' => 'Semester mahasiswa wajib dipilih.',
             'student_group.required' => 'Kelas/Rombel mahasiswa wajib dipilih.',
             'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
@@ -61,7 +64,7 @@ class RegisteredStudentController extends Controller
             'password.confirmed' => 'Konfirmasi password LMS tidak cocok.',
         ]);
 
-        $user = User::create([
+        $student = User::create([
             'name' => $validated['name'],
             'nim_nip' => $validated['nim_nip'],
             'email' => $validated['email'],
@@ -70,14 +73,11 @@ class RegisteredStudentController extends Controller
             'study_semester_id' => $validated['study_semester_id'],
             'student_group' => $validated['student_group'],
             'is_active' => false,
-            'email_verified_at' => null,
         ]);
 
-        Role::findOrCreate('mahasiswa', 'web');
+        $student->syncRoles(['mahasiswa']);
 
-        $user->assignRole('mahasiswa');
-
-        $user->semesterEnrollments()->create([
+        $student->semesterEnrollments()->create([
             'study_semester_id' => $validated['study_semester_id'],
             'academic_year_id' => null,
             'is_active' => true,
@@ -86,6 +86,6 @@ class RegisteredStudentController extends Controller
 
         return redirect()
             ->route('login')
-            ->with('status', 'Registrasi berhasil. Akun kamu sedang menunggu verifikasi admin. Kamu akan menerima email setelah akun aktif.');
+            ->with('status', 'Pendaftaran berhasil. Akun kamu masih menunggu verifikasi admin sebelum bisa login.');
     }
 }

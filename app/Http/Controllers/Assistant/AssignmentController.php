@@ -63,7 +63,7 @@ class AssignmentController extends Controller
         ]);
 
         $this->notifyUsers(
-            $class->students,
+            $this->classStudents($class),
             'assignment_created',
             'Tugas Baru Dibuat',
             "Tugas {$assignment->title} telah dibuat. Deadline: {$assignment->deadline->format('d/m/Y H:i')}.",

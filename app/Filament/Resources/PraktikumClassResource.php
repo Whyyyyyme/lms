@@ -32,9 +32,9 @@ class PraktikumClassResource extends Resource
                 Forms\Components\TextInput::make('schedule')->label('Jadwal')->maxLength(255),
                 Forms\Components\Toggle::make('is_active')->label('Aktif')->default(true),
             ])->columns(2),
-            Forms\Components\Section::make('Mahasiswa')->schema([
+            Forms\Components\Section::make('Mahasiswa Manual / Khusus')->description('Akses utama mahasiswa mengikuti semester mata kuliah. Pilihan ini hanya untuk pembagian khusus/manual.')->schema([
                 Forms\Components\Select::make('students')
-                    ->label('Daftar Mahasiswa')
+                    ->label('Mahasiswa Manual / Khusus')
                     ->relationship('students', 'name', modifyQueryUsing: fn ($query) => $query->role('mahasiswa'))
                     ->multiple()
                     ->searchable()
@@ -50,7 +50,7 @@ class PraktikumClassResource extends Resource
             Tables\Columns\TextColumn::make('course.name')->label('Matakuliah')->searchable(),
             Tables\Columns\TextColumn::make('assistant.name')->label('Asisten')->searchable(),
             Tables\Columns\TextColumn::make('schedule')->label('Jadwal'),
-            Tables\Columns\TextColumn::make('students_count')->label('Mahasiswa')->counts('students'),
+            Tables\Columns\TextColumn::make('students_count')->label('Mahasiswa Manual')->counts('students'),
             Tables\Columns\IconColumn::make('is_active')->label('Aktif')->boolean(),
         ])->filters([
             Tables\Filters\SelectFilter::make('course_id')->label('Matakuliah')->relationship('course', 'name'),

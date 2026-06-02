@@ -224,6 +224,8 @@ class UserController extends Controller
             'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
         ]);
 
+        $wasInactive = ! $user->is_active;
+
         $data = Arr::except($validated, ['role', 'password']);
         $data['is_active'] = $request->boolean('is_active');
 
@@ -252,14 +254,12 @@ class UserController extends Controller
             $validated['study_semester_id'] ?? null
         );
 
-        $user->refresh();
-
-        if (
-            $validated['role'] === 'mahasiswa'
-            && $wasInactive
-            && $user->is_active
-        ) {
-            $user->notify(new StudentAccountActivated());
+        if ($validated['role'] === 'mahasiswa' && $wasInactive && $user->is_active) {
+            try {
+                $user->notify(new AccountActivated());
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
         }
 
         return redirect()

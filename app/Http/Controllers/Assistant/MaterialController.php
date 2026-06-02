@@ -70,7 +70,7 @@ class MaterialController extends Controller
         ]);
 
         $this->notifyUsers(
-            $class->students,
+            $this->classStudents($class),
             'material_uploaded',
             'Materi Baru Diunggah',
             "Materi {$material->title} telah tersedia di {$class->name}.",

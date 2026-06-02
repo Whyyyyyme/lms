@@ -28,10 +28,6 @@ trait ResolvesClassAccess
      * 1. Kelas reguler berdasarkan semester + rombel mahasiswa.
      * 2. Kelas gabungan berdasarkan semester + group_members.
      * 3. Kelas manual/khusus dari tabel class_students.
-     *
-     * Catatan:
-     * users.kelas_id lama tidak lagi dijadikan akses utama agar mahasiswa
-     * semester/rombel lama tidak salah masuk ke kelas baru.
      */
     protected function studentClassIds(?User $user = null): array
     {
@@ -93,8 +89,6 @@ trait ResolvesClassAccess
      * Mengecek dua sumber role:
      * 1. users.role = mahasiswa
      * 2. Spatie role = mahasiswa
-     *
-     * Ini dibuat agar aman untuk data lama yang mungkin belum sinkron.
      */
     protected function studentUsersQuery(bool $activeOnly = true): Builder
     {
@@ -116,14 +110,6 @@ trait ResolvesClassAccess
      * Sumber mahasiswa:
      * 1. Mahasiswa otomatis dari semester mata kuliah + rombel kelas.
      * 2. Mahasiswa manual/khusus dari tabel class_students.
-     *
-     * Untuk kelas reguler:
-     * - users.study_semester_id = course.study_semester_id
-     * - users.student_group = classes.student_group
-     *
-     * Untuk kelas gabungan:
-     * - users.study_semester_id = course.study_semester_id
-     * - users.student_group ada di classes.group_members
      */
     protected function studentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {

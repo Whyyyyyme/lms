@@ -227,7 +227,7 @@
     <table>
         <thead>
             <tr>
-                <th>Mahasiswa Manual / Khusus</th>
+                <th>Mahasiswa yang Bisa Mengakses</th>
                 <th>NIM</th>
                 <th>Semester</th>
                 <th>Rombel</th>
@@ -237,7 +237,7 @@
         </thead>
 
         <tbody>
-            @forelse($praktikumClass->students as $student)
+            @forelse($resolvedStudents as $student)
                 <tr>
                     <td>
                         <strong>{{ $student->name }}</strong>

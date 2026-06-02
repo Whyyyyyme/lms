@@ -43,7 +43,7 @@
                 @forelse ($notifications as $notification)
                     <div class="px-4 py-3 {{ $notification->read_at ? 'bg-white' : 'bg-indigo-50/60' }}">
                         <div class="flex items-start justify-between gap-3">
-                            <a href="{{ data_get($notification->data, 'url', route('notifications.index')) }}" class="min-w-0 flex-1">
+                            <a href="{{ route('notifications.open', ['notification' => $notification->id]) }}" class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-semibold text-slate-900">
                                     {{ $notification->title ?? 'Notifikasi LMS' }}
                                 </p>

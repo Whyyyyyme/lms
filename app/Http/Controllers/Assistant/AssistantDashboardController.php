@@ -17,15 +17,19 @@ class AssistantDashboardController extends Controller
     public function index(): View
     {
         $classes = $this->assistantClassesQuery()
-            ->with(['course', 'students'])
-            ->withCount(['students', 'materials', 'assignments', 'attendances'])
+            ->with(['course.studySemester', 'students.studySemester'])
+            ->withCount(['materials', 'assignments', 'attendances'])
             ->get();
+
+        $classes->each(function ($class): void {
+            $class->setAttribute('resolved_students_count', $this->classStudents($class)->count());
+        });
 
         $classIds = $classes->pluck('id');
 
         $statistics = [
             'total_kelas' => $classes->count(),
-            'total_mahasiswa' => $classes->sum('students_count'),
+            'total_mahasiswa' => $classes->sum('resolved_students_count'),
             'total_materi' => Material::whereIn('class_id', $classIds)->count(),
             'total_tugas' => Assignment::whereIn('class_id', $classIds)->count(),
             'total_submission_belum_dinilai' => Submission::whereHas('assignment', fn ($query) => $query->whereIn('class_id', $classIds))->whereNull('graded_at')->count(),

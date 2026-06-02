@@ -7,6 +7,7 @@ use App\Models\AttendanceRecord;
 use App\Models\LmsNotification;
 use App\Models\PraktikumClass;
 use App\Models\User;
+use App\Services\StudentAccessService;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -26,7 +27,7 @@ class AbsensiLive extends Component
     public function openSession(int $classId): void
     {
         $class = PraktikumClass::query()
-            ->with('students')
+            ->with(['course.studySemester', 'students.studySemester'])
             ->whereKey($classId)
             ->firstOrFail();
 
@@ -50,7 +51,7 @@ class AbsensiLive extends Component
             'is_open' => true,
         ]);
 
-        foreach ($class->students as $student) {
+        foreach (app(StudentAccessService::class)->studentsForClass($class) as $student) {
             AttendanceRecord::firstOrCreate(
                 [
                     'attendance_id' => $attendance->id,
@@ -164,16 +165,7 @@ class AbsensiLive extends Component
 
     private function studentClassIds(): array
     {
-        $user = auth()->user();
-        $ids = collect();
-
-        if ($user?->kelas_id) {
-            $ids->push((int) $user->kelas_id);
-        }
-
-        if (method_exists($user, 'kelasDiikuti')) {
-            $ids = $ids->merge($user->kelasDiikuti()->pluck('classes.id'));
-        }
+        $ids = collect(app(StudentAccessService::class)->classIdsForStudent(auth()->user()));
 
         if ($this->classId) {
             $ids = $ids->filter(fn ($id) => (int) $id === (int) $this->classId);

@@ -195,6 +195,20 @@ class AttendanceController extends Controller
         }
     }
 
+
+    private function syncAttendanceRecordsForClass(Attendance $attendance, $class): void
+    {
+        foreach ($this->classStudents($class) as $student) {
+            AttendanceRecord::firstOrCreate([
+                'attendance_id' => $attendance->id,
+                'student_id' => $student->id,
+            ], [
+                'status' => 'alpha',
+                'checked_at' => null,
+            ]);
+        }
+    }
+
     private function notifyAttendanceOpened(Attendance $attendance): void
     {
         $attendance->loadMissing('kelas.course.studySemester');

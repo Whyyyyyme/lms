@@ -86,6 +86,7 @@ class AssignmentController extends Controller
     {
         abort_unless((int) $submission->student_id === auth()->id(), 403);
         $submission->load('assignment');
+        abort_unless(in_array((int) $submission->assignment->class_id, $this->studentClassIds(), true), 403);
         abort_if(now()->greaterThan($submission->assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
 
         $validated = $request->validate([

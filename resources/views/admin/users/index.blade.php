@@ -39,9 +39,15 @@
             @endforeach
         </select>
 
+        <select class="form-control" style="width:170px;" name="status">
+            <option value="">Semua status</option>
+            <option value="1" @selected(request('status') === '1')>Aktif</option>
+            <option value="0" @selected(request('status') === '0')>Menunggu/Nonaktif</option>
+        </select>
+
         <button class="btn" type="submit">Filter</button>
 
-        @if(request()->hasAny(['search', 'role', 'study_semester_id']))
+        @if(request()->hasAny(['search', 'role', 'study_semester_id', 'status']))
             <a href="{{ route('admin.users.index') }}" class="btn">Reset</a>
         @endif
     </form>

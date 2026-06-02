@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Course;
 use App\Models\StudySemester;
+use App\Services\StudentAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,6 +14,10 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
+    public function __construct(private readonly StudentAccessService $studentAccess)
+    {
+    }
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->input('search'));
@@ -83,6 +88,7 @@ class CourseController extends Controller
         ]);
 
         $course->loadCount('classes');
+        $this->studentAccess->attachResolvedStudentCounts($course->classes);
 
         return view('admin.courses.show', compact('course'));
     }
