@@ -46,7 +46,7 @@
                             autofocus
                             autocomplete="username"
                             class="block w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            placeholder="admin@lms.test"
+                            placeholder="nama@gmail.com"
                         >
                     </div>
 
@@ -74,6 +74,12 @@
                         Masuk
                     </button>
                 </form>
+                <div class="mt-5 text-center text-sm text-slate-600">
+                    Belum punya akun mahasiswa?
+                    <a href="{{ route('register') }}" class="font-semibold text-blue-600 hover:text-blue-700">
+                        Register di sini
+                    </a>
+                </div>
 
                 @if (\Illuminate\Support\Facades\Route::has('register'))
                     <div class="mt-4 text-center text-sm text-slate-600">
@@ -83,11 +89,9 @@
                 @endif
 
                 <div class="mt-6 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
-                    <p class="font-semibold text-slate-700">Akun demo:</p>
-                    <p>Admin: admin@lms.test</p>
-                    <p>Asisten: asisten1@lms.test</p>
-                    <p>Mahasiswa: mahasiswa1@lms.test</p>
-                    <p>Password: password</p>
+                    <p class="font-semibold text-slate-700">Catatan login:</p>
+                    <p>Gunakan email yang sudah terdaftar di LMS.</p>
+                    <p>Password yang digunakan adalah password khusus LMS, bukan password Gmail/email pribadi.</p>
                 </div>
             </div>
         </div>

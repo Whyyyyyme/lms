@@ -8,15 +8,17 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Spatie\Permission\Models\Role;
 
 class RegisteredStudentController extends Controller
 {
     public function create(): View
     {
         return view('auth.register', [
-            'studySemesters' => StudySemester::active()->orderBy('level')->get(),
+            'studySemesters' => StudySemester::active()
+                ->orderBy('level')
+                ->get(),
         ]);
     }
 

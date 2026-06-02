@@ -29,11 +29,13 @@
     </label>
 
     @include('partials.form.input', [
-        'label' => 'Email',
+        'label' => 'Email Aktif',
         'name' => 'email',
         'type' => 'email',
         'value' => $user->email ?? null,
-        'required' => true
+        'required' => true,
+        'placeholder' => 'contoh: nama@gmail.com',
+        'help' => 'Gunakan email asli yang bisa dibuka oleh mahasiswa/asisten. Password email tidak dibutuhkan; password di bawah adalah password khusus untuk login LMS.'
     ])
 
     <label class="form-group" for="role">
@@ -67,14 +69,17 @@
     </label>
 
     @include('partials.form.input', [
-        'label' => isset($user) ? 'Password Baru' : 'Password',
+        'label' => isset($user) ? 'Password LMS Baru' : 'Password LMS',
         'name' => 'password',
         'type' => 'password',
-        'required' => !isset($user)
+        'required' => !isset($user),
+        'help' => isset($user)
+            ? 'Kosongkan jika tidak ingin mengganti password LMS user ini.'
+            : 'Password ini khusus untuk login ke LMS, bukan password Gmail/email pengguna.'
     ])
 
     @include('partials.form.input', [
-        'label' => 'Konfirmasi Password',
+        'label' => 'Konfirmasi Password LMS',
         'name' => 'password_confirmation',
         'type' => 'password',
         'required' => !isset($user)
