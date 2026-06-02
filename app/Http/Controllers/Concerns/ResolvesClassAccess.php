@@ -143,9 +143,36 @@ trait ResolvesClassAccess
             ->get();
     }
 
+    /**
+     * Alias untuk controller lama yang masih memanggil classStudents().
+     *
+     * Jangan dihapus dulu, karena beberapa controller asisten dari hasil merge
+     * masih memakai nama method lama ini.
+     */
+    protected function classStudents(PraktikumClass $class, bool $activeOnly = true): Collection
+    {
+        return $this->studentsForClass($class, $activeOnly);
+    }
+
+    /**
+     * Alias untuk controller lama yang butuh ID mahasiswa kelas.
+     */
+    protected function classStudentIds(PraktikumClass $class, bool $activeOnly = true): array
+    {
+        return $this->studentIdsForClass($class, $activeOnly);
+    }
+
     protected function studentCountForClass(PraktikumClass $class, bool $activeOnly = true): int
     {
         return count($this->studentIdsForClass($class, $activeOnly));
+    }
+
+    /**
+     * Alias untuk controller lama yang masih butuh count mahasiswa kelas.
+     */
+    protected function classStudentCount(PraktikumClass $class, bool $activeOnly = true): int
+    {
+        return $this->studentCountForClass($class, $activeOnly);
     }
 
     protected function automaticStudentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array

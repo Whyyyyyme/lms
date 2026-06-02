@@ -137,7 +137,14 @@ class ClassController extends Controller
 
         $automaticStudents = $this->automaticStudentsForClass($praktikumClass);
 
-        return view('admin.classes.show', compact('praktikumClass', 'automaticStudents'));
+        
+        $resolvedStudents = $automaticStudents;
+
+        return view('admin.classes.show', compact(
+            'praktikumClass',
+            'automaticStudents',
+            'resolvedStudents'
+        ));
     }
 
     public function edit(PraktikumClass $praktikumClass): View
