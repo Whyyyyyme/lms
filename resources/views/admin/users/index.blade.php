@@ -100,9 +100,15 @@
                     </td>
 
                     <td>
-                        <span class="badge {{ $user->is_active ? 'badge-green' : 'badge-red' }}">
-                            {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
-                        </span>
+                        @if($currentRole === 'mahasiswa' && ! $user->is_active)
+                            <span class="badge badge-red">
+                                Pending Verifikasi
+                            </span>
+                        @else
+                            <span class="badge {{ $user->is_active ? 'badge-green' : 'badge-red' }}">
+                                {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
+                            </span>
+                        @endif
                     </td>
 
                     <td class="actions-inline">

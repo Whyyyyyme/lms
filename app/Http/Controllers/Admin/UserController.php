@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
+use App\Notifications\StudentAccountActivated;
 
 class UserController extends Controller
 {
@@ -75,7 +76,13 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'nim_nip' => ['nullable', 'string', 'max:50', 'unique:users,nim_nip'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:users,email',
+                'not_regex:/@(lms\.test|example\.com|example\.test)$/i',
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(self::MANAGED_ROLES)],
             'study_semester_id' => [
@@ -84,6 +91,8 @@ class UserController extends Controller
                 'exists:study_semesters,id',
             ],
             'is_active' => ['nullable', 'boolean'],
+        ], [
+            'email.not_regex' => 'Gunakan email aktif/asli, bukan email dummy seperti @lms.test atau @example.com.',
         ]);
 
         $data = Arr::except($validated, ['role', 'password']);
@@ -136,10 +145,17 @@ class UserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {   
         abort_if($user->hasRole('admin') || $user->role === 'admin', 403, 'Akun admin dikelola manual.');
+        $wasInactive = ! $user->is_active;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'nim_nip' => ['nullable', 'string', 'max:50', Rule::unique('users', 'nim_nip')->ignore($user->id)],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+                'not_regex:/@(lms\.test|example\.com|example\.test)$/i',
+            ],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(self::MANAGED_ROLES)],
             'study_semester_id' => [
@@ -148,6 +164,8 @@ class UserController extends Controller
                 'exists:study_semesters,id',
             ],
             'is_active' => ['nullable', 'boolean'],
+        ], [
+            'email.not_regex' => 'Gunakan email aktif/asli, bukan email dummy seperti @lms.test atau @example.com.',
         ]);
 
         $data = Arr::except($validated, ['role', 'password']);
@@ -168,6 +186,16 @@ class UserController extends Controller
         $user->update($data);
         $user->syncRoles([$validated['role']]);
         $this->syncStudentSemester($user, $validated['role'], $validated['study_semester_id'] ?? null);
+
+        $user->refresh();
+
+        if (
+            $validated['role'] === 'mahasiswa'
+            && $wasInactive
+            && $user->is_active
+        ) {
+            $user->notify(new StudentAccountActivated());
+        }
 
         return redirect()->route('admin.users.index')->with('success', 'User berhasil diperbarui.');
     }
