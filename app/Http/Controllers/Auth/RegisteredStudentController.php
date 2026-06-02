@@ -19,6 +19,7 @@ class RegisteredStudentController extends Controller
             'studySemesters' => StudySemester::active()
                 ->orderBy('level')
                 ->get(),
+            'studentGroups' => ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
         ]);
     }
 
@@ -27,7 +28,22 @@ class RegisteredStudentController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'nim_nip' => ['required', 'string', 'max:50', 'unique:users,nim_nip'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:users,email',
+                'not_regex:/@(lms\.test|example\.com|example\.test)$/i',
+            ],
+            'study_semester_id' => [
+                'required',
+                'exists:study_semesters,id',
+            ],
+            'student_group' => [
+                'required',
+                'string',
+                'in:A,B,C,D,E,F,G,H',
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'study_semester_id' => ['required', Rule::exists('study_semesters', 'id')->where('is_active', true)],
         ], [
@@ -41,6 +57,11 @@ class RegisteredStudentController extends Controller
             'password.min' => 'Password minimal 8 karakter.',
             'password.confirmed' => 'Konfirmasi password tidak sama.',
             'study_semester_id.required' => 'Semester mahasiswa wajib dipilih.',
+            'student_group.required' => 'Kelas/Rombel mahasiswa wajib dipilih.',
+            'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
+            'password.required' => 'Password LMS wajib diisi.',
+            'password.min' => 'Password LMS minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password LMS tidak cocok.',
         ]);
 
         $student = User::create([
@@ -50,6 +71,7 @@ class RegisteredStudentController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => 'mahasiswa',
             'study_semester_id' => $validated['study_semester_id'],
+            'student_group' => $validated['student_group'],
             'is_active' => false,
         ]);
 

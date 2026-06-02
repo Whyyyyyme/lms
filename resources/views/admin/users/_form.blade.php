@@ -1,5 +1,9 @@
 @php
     $selectedRole = old('role', isset($user) ? ($user->roles->pluck('name')->first() ?: $user->role) : 'mahasiswa');
+
+    $studentGroups = $studentGroups ?? ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+    $selectedStudentGroup = old('student_group', $user->student_group ?? '');
 @endphp
 
 <div class="grid gap-5 md:grid-cols-2">
@@ -68,6 +72,23 @@
         </small>
     </label>
 
+    <label class="form-group" for="student_group" id="student-group-wrapper">
+        <span class="form-label">Kelas/Rombel Mahasiswa <span class="required">*</span></span>
+
+        <select id="student_group" name="student_group" class="form-control">
+            <option value="">Pilih kelas/rombel</option>
+            @foreach ($studentGroups as $group)
+                <option value="{{ $group }}" @selected((string) $selectedStudentGroup === (string) $group)>
+                    Kelas {{ $group }}
+                </option>
+            @endforeach
+        </select>
+
+        <small class="form-help">
+            Pilih rombel mahasiswa sesuai kelas perkuliahan, misalnya A, B, C, sampai H.
+        </small>
+    </label>
+
     @include('partials.form.input', [
         'label' => isset($user) ? 'Password LMS Baru' : 'Password LMS',
         'name' => 'password',
@@ -87,11 +108,11 @@
 </div>
 
 <p id="student-note" class="mt-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
-    Form mahasiswa membutuhkan semester. Mata kuliah yang muncul untuk mahasiswa akan mengikuti semester tersebut.
+    Form mahasiswa membutuhkan semester dan kelas/rombel. Mata kuliah dan kelas praktikum yang muncul untuk mahasiswa akan mengikuti semester serta rombel tersebut.
 </p>
 
 <p id="assistant-note" class="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-    Form asisten tidak membutuhkan semester. Asisten akan dihubungkan ke kelas praktikum melalui fitur kelola kelas.
+    Form asisten tidak membutuhkan semester dan kelas/rombel. Asisten akan dihubungkan ke kelas praktikum melalui fitur kelola kelas.
 </p>
 
 <div class="mt-5">
@@ -105,10 +126,16 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const roleSelect = document.getElementById('role');
+
         const semesterWrapper = document.getElementById('semester-wrapper');
         const semesterSelect = document.getElementById('study_semester_id');
+
+        const studentGroupWrapper = document.getElementById('student-group-wrapper');
+        const studentGroupSelect = document.getElementById('student_group');
+
         const studentNote = document.getElementById('student-note');
         const assistantNote = document.getElementById('assistant-note');
+
         const identifierLabel = document.getElementById('identifier-label');
         const identifierHelp = document.getElementById('identifier-help');
 
@@ -116,6 +143,9 @@
             if (roleSelect.value === 'mahasiswa') {
                 semesterWrapper.style.display = '';
                 semesterSelect.setAttribute('required', 'required');
+
+                studentGroupWrapper.style.display = '';
+                studentGroupSelect.setAttribute('required', 'required');
 
                 studentNote.style.display = '';
                 assistantNote.style.display = 'none';
@@ -126,6 +156,10 @@
                 semesterWrapper.style.display = 'none';
                 semesterSelect.removeAttribute('required');
                 semesterSelect.value = '';
+
+                studentGroupWrapper.style.display = 'none';
+                studentGroupSelect.removeAttribute('required');
+                studentGroupSelect.value = '';
 
                 studentNote.style.display = 'none';
                 assistantNote.style.display = '';

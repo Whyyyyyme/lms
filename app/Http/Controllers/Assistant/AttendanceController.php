@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\ResolvesClassAccess;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\AttendanceRecord;
+use App\Models\PraktikumClass;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,10 +19,12 @@ class AttendanceController extends Controller
 
     public function index(): View
     {
+        $classIds = $this->assistantClassesQuery()->pluck('id');
+
         $attendances = Attendance::query()
-            ->with(['kelas.course', 'opener'])
+            ->with(['kelas.course.studySemester', 'opener'])
             ->withCount('records')
-            ->whereIn('class_id', $this->assistantClassesQuery()->pluck('id'))
+            ->whereIn('class_id', $classIds)
             ->latest('session_date')
             ->paginate(10);
 
@@ -31,7 +34,11 @@ class AttendanceController extends Controller
     public function create(): View
     {
         return view('assistant.attendances.create', [
-            'classes' => $this->assistantClassesQuery()->with('course')->get(),
+            'classes' => $this->assistantClassesQuery()
+                ->with(['course.studySemester'])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -41,6 +48,11 @@ class AttendanceController extends Controller
             'class_id' => ['required', 'exists:classes,id'],
             'session_date' => ['required', 'date'],
             'open_now' => ['nullable', 'boolean'],
+        ], [
+            'class_id.required' => 'Kelas praktikum wajib dipilih.',
+            'class_id.exists' => 'Kelas praktikum tidak valid.',
+            'session_date.required' => 'Tanggal sesi absensi wajib diisi.',
+            'session_date.date' => 'Format tanggal sesi absensi tidak valid.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
@@ -54,19 +66,35 @@ class AttendanceController extends Controller
             'is_open' => $request->boolean('open_now'),
         ]);
 
-        $this->syncAttendanceRecordsForClass($attendance, $class);
+        $this->syncAttendanceRecords($attendance);
 
         if ($attendance->is_open) {
             $this->notifyAttendanceOpened($attendance);
         }
 
-        return redirect()->route('assistant.attendances.show', $attendance)->with('success', 'Sesi absensi berhasil dibuat.');
+        return redirect()
+            ->route('assistant.attendances.show', $attendance)
+            ->with('success', 'Sesi absensi berhasil dibuat.');
     }
 
     public function show(Attendance $attendance): View
     {
         $this->assistantClassOrFail((int) $attendance->class_id);
-        $attendance->load(['kelas.course', 'opener', 'records.student']);
+
+        $this->syncAttendanceRecords($attendance);
+
+        $attendance->load([
+            'kelas.course.studySemester',
+            'opener',
+            'records.student.studySemester',
+        ]);
+
+        $attendance->records = $attendance->records
+            ->sortBy([
+                fn ($record) => $record->student?->student_group ?? '',
+                fn ($record) => $record->student?->name ?? '',
+            ])
+            ->values();
 
         return view('assistant.attendances.show', compact('attendance'));
     }
@@ -77,7 +105,10 @@ class AttendanceController extends Controller
 
         Attendance::where('class_id', $attendance->class_id)
             ->whereKeyNot($attendance->id)
-            ->update(['is_open' => false, 'closed_at' => now()]);
+            ->update([
+                'is_open' => false,
+                'closed_at' => now(),
+            ]);
 
         $attendance->update([
             'is_open' => true,
@@ -85,8 +116,8 @@ class AttendanceController extends Controller
             'closed_at' => null,
         ]);
 
-        $this->syncAttendanceRecordsForClass($attendance->fresh(), $attendance->kelas);
-        $this->notifyAttendanceOpened($attendance->fresh(['kelas.course.studySemester', 'kelas.students.studySemester']));
+        $this->syncAttendanceRecords($attendance);
+        $this->notifyAttendanceOpened($attendance);
 
         return back()->with('success', 'Sesi absensi berhasil dibuka.');
     }
@@ -106,10 +137,14 @@ class AttendanceController extends Controller
     public function updateRecord(Request $request, Attendance $attendance, AttendanceRecord $record): RedirectResponse
     {
         $this->assistantClassOrFail((int) $attendance->class_id);
+
         abort_unless((int) $record->attendance_id === (int) $attendance->id, 404);
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(['hadir', 'izin', 'alpha'])],
+        ], [
+            'status.required' => 'Status absensi wajib dipilih.',
+            'status.in' => 'Status absensi tidak valid.',
         ]);
 
         $record->update([
@@ -123,9 +158,41 @@ class AttendanceController extends Controller
     public function destroy(Attendance $attendance): RedirectResponse
     {
         $this->assistantClassOrFail((int) $attendance->class_id);
+
+        $hasImportantRecords = $attendance->records()
+            ->whereIn('status', ['hadir', 'izin'])
+            ->exists();
+
+        if ($hasImportantRecords) {
+            return back()->with('error', 'Sesi absensi tidak bisa dihapus karena sudah memiliki record hadir/izin.');
+        }
+
         $attendance->delete();
 
-        return redirect()->route('assistant.attendances.index')->with('success', 'Sesi absensi berhasil dihapus.');
+        return redirect()
+            ->route('assistant.attendances.index')
+            ->with('success', 'Sesi absensi berhasil dihapus.');
+    }
+
+    private function syncAttendanceRecords(Attendance $attendance): void
+    {
+        $attendance->loadMissing('kelas.course.studySemester');
+
+        if (! $attendance->kelas instanceof PraktikumClass) {
+            return;
+        }
+
+        $students = $this->studentsForClass($attendance->kelas);
+
+        foreach ($students as $student) {
+            AttendanceRecord::firstOrCreate([
+                'attendance_id' => $attendance->id,
+                'student_id' => $student->id,
+            ], [
+                'status' => 'alpha',
+                'checked_at' => null,
+            ]);
+        }
     }
 
 
@@ -144,14 +211,27 @@ class AttendanceController extends Controller
 
     private function notifyAttendanceOpened(Attendance $attendance): void
     {
-        $attendance->loadMissing('kelas.course.studySemester', 'kelas.students.studySemester');
+        $attendance->loadMissing('kelas.course.studySemester');
+
+        if (! $attendance->kelas instanceof PraktikumClass) {
+            return;
+        }
+
+        $students = $this->studentsForClass($attendance->kelas);
+
+        if ($students->isEmpty()) {
+            return;
+        }
 
         $this->notifyUsers(
-            $this->classStudents($attendance->kelas),
+            $students,
             'attendance_opened',
             'Absensi Praktikum Dibuka',
             "Absensi untuk {$attendance->kelas->name} sudah dibuka. Silakan check-in sekarang.",
-            ['attendance_id' => $attendance->id, 'class_id' => $attendance->class_id]
+            [
+                'attendance_id' => $attendance->id,
+                'class_id' => $attendance->class_id,
+            ]
         );
     }
 }

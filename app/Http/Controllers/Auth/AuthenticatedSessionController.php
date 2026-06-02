@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,41 +38,60 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        /** @var User $user */
         $user = $request->user();
 
         if (! $user->is_active) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            $this->logoutCurrentSession($request);
 
             throw ValidationException::withMessages([
                 'email' => 'Akun kamu belum aktif. Silakan hubungi admin.',
             ]);
         }
 
-        if ($user->hasRole('admin')) {
-            return redirect()->intended(route('admin.dashboard'));
+        $dashboardRoute = $this->dashboardRouteFor($user);
+
+        if (! $dashboardRoute) {
+            $this->logoutCurrentSession($request);
+
+            throw ValidationException::withMessages([
+                'email' => 'Role akun belum valid. Silakan hubungi admin.',
+            ]);
         }
 
-        if ($user->hasRole('asisten')) {
-            return redirect()->intended(route('assistant.dashboard'));
-        }
-
-        if ($user->hasRole('mahasiswa')) {
-            return redirect()->intended(route('student.dashboard'));
-        }
-
-        return redirect()->intended(route('dashboard'));
+        return redirect()->route($dashboardRoute);
     }
 
     public function destroy(Request $request): RedirectResponse
+    {
+        $this->logoutCurrentSession($request);
+
+        return redirect()->route('login')
+            ->with('status', 'Kamu berhasil logout.');
+    }
+
+    private function dashboardRouteFor(User $user): ?string
+    {
+        if ($user->hasRole('admin') || $user->role === 'admin') {
+            return 'admin.dashboard';
+        }
+
+        if ($user->hasRole('asisten') || $user->role === 'asisten') {
+            return 'assistant.dashboard';
+        }
+
+        if ($user->hasRole('mahasiswa') || $user->role === 'mahasiswa') {
+            return 'student.dashboard';
+        }
+
+        return null;
+    }
+
+    private function logoutCurrentSession(Request $request): void
     {
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
-        return redirect()->route('login')
-            ->with('status', 'Kamu berhasil logout.');
     }
 }

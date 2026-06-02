@@ -27,6 +27,7 @@ class User extends Authenticatable implements FilamentUser
         'avatar',
         'kelas_id',
         'study_semester_id',
+        'student_group',
         'is_active',
         'email_verified_at',
     ];
