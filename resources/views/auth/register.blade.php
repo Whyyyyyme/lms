@@ -3,29 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<<<<<<< HEAD
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Registrasi Mahasiswa - LMS Praktikum</title>
-=======
-    <title>Register Mahasiswa - LMS Praktikum</title>
->>>>>>> 4c24e71e2771d7e79db12497052ba02e3d0eeb7e
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">
     <div class="flex min-h-screen items-center justify-center px-4 py-10">
-<<<<<<< HEAD
-        <div class="w-full max-w-2xl">
-            <div class="mb-6 text-center">
-                <h1 class="text-3xl font-bold tracking-tight text-slate-900">Registrasi Mahasiswa</h1>
-                <p class="mt-2 text-sm text-slate-600">Daftar memakai email aktif. Akun akan menunggu verifikasi admin sebelum bisa login.</p>
-=======
         <div class="w-full max-w-lg">
             <div class="mb-6 text-center">
                 <h1 class="text-3xl font-bold tracking-tight text-slate-900">Register Mahasiswa</h1>
                 <p class="mt-2 text-sm text-slate-600">
                     Daftar akun LMS Praktikum menggunakan email aktif.
                 </p>
->>>>>>> 4c24e71e2771d7e79db12497052ba02e3d0eeb7e
             </div>
 
             <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -112,25 +101,6 @@
                     </div>
 
                     <div>
-<<<<<<< HEAD
-                        <label for="password" class="mb-1 block text-sm font-medium text-slate-700">Password LMS</label>
-                        <input id="password" name="password" type="password" required autocomplete="new-password" class="block w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        <p class="mt-1 text-xs text-slate-500">Password ini khusus untuk LMS, tidak harus sama dengan password Gmail.</p>
-                    </div>
-
-                    <div>
-                        <label for="password_confirmation" class="mb-1 block text-sm font-medium text-slate-700">Konfirmasi Password</label>
-                        <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="block w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                    </div>
-
-                    <div class="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <a href="{{ route('login') }}" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Sudah punya akun? Login</a>
-                        <button type="submit" class="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
-                            Daftar & Tunggu Verifikasi
-                        </button>
-                    </div>
-                </form>
-=======
                         <label for="password" class="mb-1 block text-sm font-medium text-slate-700">
                             Password LMS
                         </label>
@@ -181,13 +151,8 @@
                         Setelah register, akun belum langsung aktif. Admin harus memverifikasi akun terlebih dahulu.
                     </p>
                 </div>
->>>>>>> 4c24e71e2771d7e79db12497052ba02e3d0eeb7e
             </div>
         </div>
     </div>
 </body>
-<<<<<<< HEAD
 </html>
-=======
-</html>
->>>>>>> 4c24e71e2771d7e79db12497052ba02e3d0eeb7e

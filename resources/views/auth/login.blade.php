@@ -80,14 +80,6 @@
                         Register di sini
                     </a>
                 </div>
-
-                @if (\Illuminate\Support\Facades\Route::has('register'))
-                    <div class="mt-4 text-center text-sm text-slate-600">
-                        Belum punya akun mahasiswa?
-                        <a href="{{ route('register') }}" class="font-semibold text-blue-600 hover:text-blue-700">Daftar di sini</a>
-                    </div>
-                @endif
-
                 <div class="mt-6 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
                     <p class="font-semibold text-slate-700">Catatan login:</p>
                     <p>Gunakan email yang sudah terdaftar di LMS.</p>
