@@ -7,7 +7,9 @@ use App\Models\StudySemester;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 
@@ -27,7 +29,14 @@ class RegisteredStudentController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'nim_nip' => ['required', 'string', 'max:50', 'unique:users,nim_nip'],
+
+            'nim_nip' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:users,nim_nip',
+            ],
+
             'email' => [
                 'required',
                 'email',
@@ -35,54 +44,87 @@ class RegisteredStudentController extends Controller
                 'unique:users,email',
                 'not_regex:/@(lms\.test|example\.com|example\.test)$/i',
             ],
+
             'study_semester_id' => [
                 'required',
-                'exists:study_semesters,id',
+                Rule::exists('study_semesters', 'id')->where('is_active', true),
             ],
+
             'student_group' => [
                 'required',
                 'string',
-                'in:A,B,C,D,E,F,G,H',
+                Rule::in(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']),
             ],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'study_semester_id' => ['required', Rule::exists('study_semesters', 'id')->where('is_active', true)],
+
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
+
             'nim_nip.required' => 'NIM wajib diisi.',
             'nim_nip.unique' => 'NIM sudah terdaftar.',
+
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email sudah terdaftar.',
-            'password.required' => 'Password wajib diisi.',
-            'password.min' => 'Password minimal 8 karakter.',
-            'password.confirmed' => 'Konfirmasi password tidak sama.',
+            'email.not_regex' => 'Gunakan email aktif yang valid, bukan email contoh atau email sistem.',
+
             'study_semester_id.required' => 'Semester mahasiswa wajib dipilih.',
+            'study_semester_id.exists' => 'Semester mahasiswa tidak valid atau tidak aktif.',
+
             'student_group.required' => 'Kelas/Rombel mahasiswa wajib dipilih.',
             'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
+
             'password.required' => 'Password LMS wajib diisi.',
             'password.min' => 'Password LMS minimal 8 karakter.',
             'password.confirmed' => 'Konfirmasi password LMS tidak cocok.',
         ]);
 
-        $student = User::create([
-            'name' => $validated['name'],
-            'nim_nip' => $validated['nim_nip'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'mahasiswa',
-            'study_semester_id' => $validated['study_semester_id'],
-            'student_group' => $validated['student_group'],
-            'is_active' => false,
-        ]);
+        DB::transaction(function () use ($validated): void {
+            /*
+             * Pastikan role mahasiswa tersedia.
+             * Ini mencegah error jika role belum ada di database Spatie.
+             */
+            Role::findOrCreate('mahasiswa', 'web');
 
-        $student->syncRoles(['mahasiswa']);
+            $student = User::create([
+                'name' => $validated['name'],
+                'nim_nip' => $validated['nim_nip'],
+                'email' => strtolower($validated['email']),
+                'password' => Hash::make($validated['password']),
+                'role' => 'mahasiswa',
 
-        $student->semesterEnrollments()->create([
-            'study_semester_id' => $validated['study_semester_id'],
-            'academic_year_id' => null,
-            'is_active' => true,
-            'enrolled_at' => now(),
-        ]);
+                /*
+                 * Data akademik mahasiswa.
+                 */
+                'study_semester_id' => $validated['study_semester_id'],
+                'student_group' => $validated['student_group'],
+
+                /*
+                 * Akun mahasiswa baru wajib pending dulu.
+                 * Admin harus verifikasi sebelum mahasiswa bisa login.
+                 */
+                'is_active' => false,
+            ]);
+
+            $student->syncRoles(['mahasiswa']);
+
+            /*
+             * Simpan enrollment semester jika relasinya tersedia.
+             */
+            if (method_exists($student, 'semesterEnrollments')) {
+                $student->semesterEnrollments()->create([
+                    'study_semester_id' => $validated['study_semester_id'],
+                    'academic_year_id' => null,
+                    'is_active' => true,
+                    'enrolled_at' => now(),
+                ]);
+            }
+        });
 
         return redirect()
             ->route('login')
