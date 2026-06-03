@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\AttendanceRecord;
 use App\Models\PraktikumClass;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,8 +26,13 @@ class AttendanceController extends Controller
             ->with(['kelas.course.studySemester', 'opener'])
             ->withCount('records')
             ->whereIn('class_id', $classIds)
+            ->latest('opened_at')
             ->latest('session_date')
             ->paginate(10);
+
+        $attendances->getCollection()->each(function (Attendance $attendance): void {
+            $this->refreshAttendanceStatus($attendance);
+        });
 
         return view('assistant.attendances.index', compact('attendances'));
     }
@@ -46,24 +52,42 @@ class AttendanceController extends Controller
     {
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,id'],
-            'session_date' => ['required', 'date'],
-            'open_now' => ['nullable', 'boolean'],
+            'opened_at' => ['required', 'date'],
+            'closed_at' => ['required', 'date', 'after:opened_at'],
         ], [
             'class_id.required' => 'Kelas praktikum wajib dipilih.',
             'class_id.exists' => 'Kelas praktikum tidak valid.',
-            'session_date.required' => 'Tanggal sesi absensi wajib diisi.',
-            'session_date.date' => 'Format tanggal sesi absensi tidak valid.',
+            'opened_at.required' => 'Tanggal dan jam dibuka wajib diisi.',
+            'opened_at.date' => 'Format tanggal dan jam dibuka tidak valid.',
+            'closed_at.required' => 'Tanggal dan jam ditutup wajib diisi.',
+            'closed_at.date' => 'Format tanggal dan jam ditutup tidak valid.',
+            'closed_at.after' => 'Tanggal dan jam ditutup harus setelah tanggal dan jam dibuka.',
         ]);
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
+        $openedAt = Carbon::parse($validated['opened_at'], config('app.timezone'));
+        $closedAt = Carbon::parse($validated['closed_at'], config('app.timezone'));
+
+        $isOpen = $openedAt->lessThanOrEqualTo(now()) && $closedAt->greaterThan(now());
+
+        if ($isOpen) {
+            Attendance::query()
+                ->where('class_id', $class->id)
+                ->where('is_open', true)
+                ->update([
+                    'is_open' => false,
+                    'closed_at' => now(),
+                ]);
+        }
+
         $attendance = Attendance::create([
             'class_id' => $class->id,
-            'session_date' => $validated['session_date'],
+            'session_date' => $openedAt->toDateString(),
             'opened_by' => auth()->id(),
-            'opened_at' => $request->boolean('open_now') ? now() : null,
-            'closed_at' => null,
-            'is_open' => $request->boolean('open_now'),
+            'opened_at' => $openedAt,
+            'closed_at' => $closedAt,
+            'is_open' => $isOpen,
         ]);
 
         $this->syncAttendanceRecords($attendance);
@@ -81,6 +105,7 @@ class AttendanceController extends Controller
     {
         $this->assistantClassOrFail((int) $attendance->class_id);
 
+        $this->refreshAttendanceStatus($attendance);
         $this->syncAttendanceRecords($attendance);
 
         $attendance->load([
@@ -103,8 +128,14 @@ class AttendanceController extends Controller
     {
         $this->assistantClassOrFail((int) $attendance->class_id);
 
-        Attendance::where('class_id', $attendance->class_id)
+        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now())) {
+            return back()->with('error', 'Sesi absensi tidak bisa dibuka karena waktu tutup sudah lewat.');
+        }
+
+        Attendance::query()
+            ->where('class_id', $attendance->class_id)
             ->whereKeyNot($attendance->id)
+            ->where('is_open', true)
             ->update([
                 'is_open' => false,
                 'closed_at' => now(),
@@ -112,12 +143,13 @@ class AttendanceController extends Controller
 
         $attendance->update([
             'is_open' => true,
-            'opened_at' => $attendance->opened_at ?? now(),
-            'closed_at' => null,
+            'opened_at' => $attendance->opened_at && $attendance->opened_at->lessThanOrEqualTo(now())
+                ? $attendance->opened_at
+                : now(),
         ]);
 
         $this->syncAttendanceRecords($attendance);
-        $this->notifyAttendanceOpened($attendance);
+        $this->notifyAttendanceOpened($attendance->fresh());
 
         return back()->with('success', 'Sesi absensi berhasil dibuka.');
     }
@@ -174,6 +206,29 @@ class AttendanceController extends Controller
             ->with('success', 'Sesi absensi berhasil dihapus.');
     }
 
+    private function refreshAttendanceStatus(Attendance $attendance): void
+    {
+        $now = now();
+
+        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo($now)) {
+            if ($attendance->is_open) {
+                $attendance->update(['is_open' => false]);
+            }
+
+            return;
+        }
+
+        if (
+            $attendance->opened_at
+            && $attendance->opened_at->lessThanOrEqualTo($now)
+            && (! $attendance->closed_at || $attendance->closed_at->greaterThan($now))
+        ) {
+            if (! $attendance->is_open) {
+                $attendance->update(['is_open' => true]);
+            }
+        }
+    }
+
     private function syncAttendanceRecords(Attendance $attendance): void
     {
         $attendance->loadMissing('kelas.course.studySemester');
@@ -195,20 +250,6 @@ class AttendanceController extends Controller
         }
     }
 
-
-    private function syncAttendanceRecordsForClass(Attendance $attendance, $class): void
-    {
-        foreach ($this->classStudents($class) as $student) {
-            AttendanceRecord::firstOrCreate([
-                'attendance_id' => $attendance->id,
-                'student_id' => $student->id,
-            ], [
-                'status' => 'alpha',
-                'checked_at' => null,
-            ]);
-        }
-    }
-
     private function notifyAttendanceOpened(Attendance $attendance): void
     {
         $attendance->loadMissing('kelas.course.studySemester');
@@ -217,7 +258,8 @@ class AttendanceController extends Controller
             return;
         }
 
-        $students = $this->studentsForClass($attendance->kelas);
+        $class = $attendance->kelas;
+        $students = $this->studentsForClass($class);
 
         if ($students->isEmpty()) {
             return;
@@ -225,22 +267,23 @@ class AttendanceController extends Controller
 
         $classInfo = $this->classContext($class);
 
-$this->notifyUsers(
-    $this->classStudents($class),
-    'attendance_opened',
-    'Absensi Dibuka',
-    "Absensi untuk {$classInfo['label']}.",
-    [
-        'attendance_id' => $attendance->id,
-        'class_id' => $class->id,
-        'course_name' => $classInfo['course_name'],
-        'course_code' => $classInfo['course_code'],
-        'class_name' => $classInfo['class_name'],
-        'context_label' => $classInfo['label'],
-        'session_date' => $attendance->session_date?->format('d M Y'),
-        'opened_at' => $attendance->opened_at?->timezone('Asia/Jakarta')->format('H:i') . ' WIB',
-        'url' => route('student.attendances.index'),
-    ]
-);
+        $this->notifyUsers(
+            $students,
+            'attendance_opened',
+            'Absensi Dibuka',
+            "Absensi untuk {$classInfo['label']} sudah dibuka.",
+            [
+                'attendance_id' => $attendance->id,
+                'class_id' => $class->id,
+                'course_name' => $classInfo['course_name'],
+                'course_code' => $classInfo['course_code'],
+                'class_name' => $classInfo['class_name'],
+                'context_label' => $classInfo['label'],
+                'session_date' => $attendance->session_date?->format('d M Y'),
+                'opened_at' => $attendance->opened_at?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
+                'closed_at' => $attendance->closed_at?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
+                'url' => route('student.attendances.index'),
+            ]
+        );
     }
 }

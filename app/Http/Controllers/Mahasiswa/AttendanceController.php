@@ -23,8 +23,13 @@ class AttendanceController extends Controller
                 },
             ])
             ->whereIn('class_id', $this->studentClassIds())
+            ->latest('opened_at')
             ->latest('session_date')
             ->paginate(10);
+
+        $attendances->getCollection()->each(function (Attendance $attendance): void {
+            $this->refreshAttendanceStatus($attendance);
+        });
 
         return view('student.attendances.index', compact('attendances'));
     }
@@ -35,6 +40,17 @@ class AttendanceController extends Controller
             in_array((int) $attendance->class_id, $this->studentClassIds(), true),
             403
         );
+
+        $this->refreshAttendanceStatus($attendance);
+        $attendance->refresh();
+
+        if ($attendance->opened_at && $attendance->opened_at->greaterThan(now())) {
+            return back()->with('error', 'Sesi absensi belum dibuka.');
+        }
+
+        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now())) {
+            return back()->with('error', 'Sesi absensi sudah ditutup.');
+        }
 
         if (! $attendance->is_open) {
             return back()->with('error', 'Sesi absensi belum dibuka atau sudah ditutup.');
@@ -65,5 +81,32 @@ class AttendanceController extends Controller
         );
 
         return back()->with('success', 'Absensi berhasil. Status kamu tercatat hadir.');
+    }
+
+    private function refreshAttendanceStatus(Attendance $attendance): void
+    {
+        $now = now();
+
+        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo($now)) {
+            if ($attendance->is_open) {
+                $attendance->update([
+                    'is_open' => false,
+                ]);
+            }
+
+            return;
+        }
+
+        if (
+            $attendance->opened_at
+            && $attendance->opened_at->lessThanOrEqualTo($now)
+            && (! $attendance->closed_at || $attendance->closed_at->greaterThan($now))
+        ) {
+            if (! $attendance->is_open) {
+                $attendance->update([
+                    'is_open' => true,
+                ]);
+            }
+        }
     }
 }
