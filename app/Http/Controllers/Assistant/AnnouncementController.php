@@ -49,13 +49,23 @@ class AnnouncementController extends Controller
             'created_by' => auth()->id(),
         ]);
 
-        $this->notifyUsers(
-            $this->classStudents($class),
-            'announcement_published',
-            'Pengumuman Baru',
-            "Pengumuman baru: {$announcement->title}",
-            ['announcement_id' => $announcement->id, 'class_id' => $class->id]
-        );
+        $classInfo = $this->classContext($class);
+
+$this->notifyUsers(
+    $this->classStudents($class),
+    'announcement_published',
+    'Pengumuman Baru',
+    "Pengumuman {$announcement->title} untuk {$classInfo['label']}.",
+    [
+        'announcement_id' => $announcement->id,
+        'class_id' => $class->id,
+        'course_name' => $classInfo['course_name'],
+        'course_code' => $classInfo['course_code'],
+        'class_name' => $classInfo['class_name'],
+        'context_label' => $classInfo['label'],
+        'url' => route('student.dashboard'),
+    ]
+);
 
         return redirect()->route('assistant.pengumuman.index')->with('success', 'Pengumuman berhasil dikirim.');
     }

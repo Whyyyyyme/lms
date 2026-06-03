@@ -34,68 +34,74 @@ class MaterialController extends Controller
         ]);
     }
 
-   public function store(Request $request): RedirectResponse
-{
-    $validated = $request->validate([
-        'class_id' => ['required', 'exists:classes,id'],
-        'title' => ['required', 'string', 'max:255'],
-        'description' => ['nullable', 'string'],
-        'type' => ['required', Rule::in(['pdf', 'link'])],
-        'file' => ['required_if:type,pdf', 'nullable', 'file', 'mimes:pdf', 'max:102400'],
-        'link' => ['required_if:type,link', 'nullable', 'url', 'max:1000'],
-        'published_at' => ['nullable', 'date'],
-    ], [
-        'type.required' => 'Tipe materi wajib dipilih.',
-        'type.in' => 'Tipe materi hanya boleh PDF atau Link Video.',
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'class_id' => ['required', 'exists:classes,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'type' => ['required', Rule::in(['pdf', 'link'])],
+            'file' => ['required_if:type,pdf', 'nullable', 'file', 'mimes:pdf', 'max:102400'],
+            'link' => ['required_if:type,link', 'nullable', 'url', 'max:1000'],
+            'published_at' => ['nullable', 'date'],
+        ], [
+            'type.required' => 'Tipe materi wajib dipilih.',
+            'type.in' => 'Tipe materi hanya boleh PDF atau Link Video.',
 
-        'file.required_if' => 'File PDF wajib diupload jika tipe materi adalah PDF.',
-        'file.uploaded' => 'File gagal diunggah. Cek upload_max_filesize, post_max_size, dan upload_tmp_dir di php.ini.',
-        'file.mimes' => 'File harus berformat PDF.',
-        'file.max' => 'Ukuran file maksimal 100 MB.',
-        'file.file' => 'Upload harus berupa file yang valid.',
+            'file.required_if' => 'File PDF wajib diupload jika tipe materi adalah PDF.',
+            'file.uploaded' => 'File gagal diunggah. Cek upload_max_filesize, post_max_size, dan upload_tmp_dir di php.ini.',
+            'file.mimes' => 'File harus berformat PDF.',
+            'file.max' => 'Ukuran file maksimal 100 MB.',
+            'file.file' => 'Upload harus berupa file yang valid.',
 
-        'link.required_if' => 'Link video wajib diisi jika tipe materi adalah Link Video.',
-        'link.url' => 'Link video harus berupa URL yang valid.',
-    ]);
+            'link.required_if' => 'Link video wajib diisi jika tipe materi adalah Link Video.',
+            'link.url' => 'Link video harus berupa URL yang valid.',
+        ]);
 
-    $class = $this->assistantClassOrFail((int) $validated['class_id']);
+        $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
-    $filePath = null;
+        $filePath = null;
 
-    if ($validated['type'] === 'pdf') {
-        $filePath = $request->file('file')->store('materials', 'public');
-    }
+        if ($validated['type'] === 'pdf') {
+            $filePath = $request->file('file')->store('materials', 'public');
+        }
 
-    if ($validated['type'] === 'link') {
-        $filePath = $validated['link'];
-    }
+        if ($validated['type'] === 'link') {
+            $filePath = $validated['link'];
+        }
 
-    $material = Material::create([
-        'class_id' => $class->id,
-        'title' => $validated['title'],
-        'description' => $validated['description'] ?? null,
-        'type' => $validated['type'],
-        'file_path' => $filePath,
-        'created_by' => auth()->id(),
-        'published_at' => $validated['published_at'] ?? now(),
-    ]);
-
-    $this->notifyUsers(
-        $this->classStudents($class),
-        'material_uploaded',
-        'Materi Baru Diunggah',
-        "Materi {$material->title} telah tersedia di {$class->name}.",
-        [
-            'material_id' => $material->id,
+        $material = Material::create([
             'class_id' => $class->id,
-            'url' => route('student.materials.show', $material),
-        ]
-    );
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'type' => $validated['type'],
+            'file_path' => $filePath,
+            'created_by' => auth()->id(),
+            'published_at' => $validated['published_at'] ?? now(),
+        ]);
 
-    return redirect()
-        ->route('assistant.materi.index')
-        ->with('success', 'Materi berhasil ditambahkan.');
-}
+        $classInfo = $this->classContext($class);
+
+        $this->notifyUsers(
+            $this->classStudents($class),
+            'material_uploaded',
+            'Materi Baru Diunggah',
+            "{$material->title} telah tersedia untuk {$classInfo['label']}.",
+            [
+                'material_id' => $material->id,
+                'class_id' => $class->id,
+                'course_name' => $classInfo['course_name'],
+                'course_code' => $classInfo['course_code'],
+                'class_name' => $classInfo['class_name'],
+                'context_label' => $classInfo['label'],
+                'url' => route('student.materials.show', $material),
+            ]
+        );
+
+        return redirect()
+            ->route('assistant.materi.index')
+            ->with('success', 'Materi berhasil ditambahkan.');
+    }
 
     public function show(Material $material): View
     {

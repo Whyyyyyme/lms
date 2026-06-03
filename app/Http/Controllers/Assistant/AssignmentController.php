@@ -62,13 +62,24 @@ class AssignmentController extends Controller
             'created_by' => auth()->id(),
         ]);
 
-        $this->notifyUsers(
-            $this->classStudents($class),
-            'assignment_created',
-            'Tugas Baru Dibuat',
-            "Tugas {$assignment->title} telah dibuat. Deadline: {$assignment->deadline->format('d/m/Y H:i')}.",
-            ['assignment_id' => $assignment->id, 'class_id' => $class->id]
-        );
+        $classInfo = $this->classContext($class);
+
+$this->notifyUsers(
+    $this->classStudents($class),
+    'assignment_created',
+    'Tugas Baru',
+    "{$assignment->title} telah dibuat untuk {$classInfo['label']}.",
+    [
+        'assignment_id' => $assignment->id,
+        'class_id' => $class->id,
+        'course_name' => $classInfo['course_name'],
+        'course_code' => $classInfo['course_code'],
+        'class_name' => $classInfo['class_name'],
+        'context_label' => $classInfo['label'],
+        'deadline' => $assignment->deadline?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
+        'url' => route('student.assignments.show', $assignment),
+    ]
+);
 
         return redirect()->route('assistant.tugas.index')->with('success', 'Tugas berhasil dibuat.');
     }
