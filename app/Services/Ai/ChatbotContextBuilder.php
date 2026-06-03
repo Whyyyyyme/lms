@@ -6,7 +6,6 @@ use App\Models\Assignment;
 use App\Models\Material;
 use App\Models\User;
 use App\Services\StudentAccessService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ChatbotContextBuilder
@@ -14,9 +13,14 @@ class ChatbotContextBuilder
     public function build(User $user): array
     {
         $classes = app(StudentAccessService::class)->classesForStudent($user);
-        $classIds = $classes->pluck('id')->filter()->values();
+
+        $classIds = $classes
+            ->pluck('id')
+            ->filter()
+            ->values();
 
         $materials = Material::query()
+            ->published()
             ->whereIn('class_id', $classIds)
             ->latest('published_at')
             ->latest('created_at')
@@ -32,8 +36,11 @@ class ChatbotContextBuilder
             ->all();
 
         $assignments = Assignment::query()
+            ->published()
             ->whereIn('class_id', $classIds)
-            ->with(['submissions' => fn ($query) => $query->where('student_id', $user->id)])
+            ->with([
+                'submissions' => fn ($query) => $query->where('student_id', $user->id),
+            ])
             ->orderBy('deadline')
             ->limit((int) config('lms-ai.max_context_assignments', 10))
             ->get()
@@ -60,13 +67,18 @@ class ChatbotContextBuilder
                 'nim_nip' => $user->nim_nip,
                 'email' => $user->email,
             ],
-            'kelas' => $classes->map(fn ($class): array => [
-                'nama' => $class->name,
-                'ruang' => $class->room,
-                'jadwal' => $class->schedule,
-                'matakuliah' => $class->course?->name,
-                'kode_matakuliah' => $class->course?->code,
-            ])->values()->all(),
+
+            'kelas' => $classes
+                ->map(fn ($class): array => [
+                    'nama' => $class->name,
+                    'ruang' => $class->room,
+                    'jadwal' => $class->schedule,
+                    'matakuliah' => $class->course?->name,
+                    'kode_matakuliah' => $class->course?->code,
+                ])
+                ->values()
+                ->all(),
+
             'materi' => $materials,
             'tugas' => $assignments,
         ];
@@ -80,7 +92,8 @@ class ChatbotContextBuilder
             . "Jawab dalam Bahasa Indonesia yang jelas, sopan, dan ringkas. "
             . "Gunakan konteks data LMS berikut untuk menjawab pertanyaan mahasiswa. "
             . "Jika pertanyaan di luar konteks LMS, tetap bantu secara umum tetapi jelaskan bila data LMS tidak tersedia. "
-            . "Jangan mengarang nilai, deadline, materi, atau status submission yang tidak ada di konteks.\n\n"
+            . "Jangan mengarang nilai, deadline, materi, tugas, atau status submission yang tidak ada di konteks. "
+            . "Jika mahasiswa menanyakan tugas yang belum muncul atau belum dipublikasikan, jawab bahwa data tugas tersebut belum tersedia di LMS.\n\n"
             . "KONTEKS LMS:\n"
             . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }

@@ -20,13 +20,32 @@ class MahasiswaDashboardController extends Controller
         $classIds = $this->studentClassIds();
 
         $statistics = [
-            'total_materi' => Material::published()->whereIn('class_id', $classIds)->count(),
-            'total_tugas' => Assignment::whereIn('class_id', $classIds)->count(),
-            'tugas_belum_dikumpulkan' => Assignment::whereIn('class_id', $classIds)
-                ->whereDoesntHave('submissions', fn ($query) => $query->where('student_id', auth()->id()))
+            'total_materi' => Material::published()
+                ->whereIn('class_id', $classIds)
                 ->count(),
-            'total_nilai' => Submission::where('student_id', auth()->id())->whereNotNull('graded_at')->count(),
-            'absensi_terbuka' => Attendance::whereIn('class_id', $classIds)->where('is_open', true)->count(),
+
+            'total_tugas' => Assignment::published()
+                ->whereIn('class_id', $classIds)
+                ->count(),
+
+            'tugas_belum_dikumpulkan' => Assignment::published()
+                ->whereIn('class_id', $classIds)
+                ->whereDoesntHave('submissions', function ($query) {
+                    $query->where('student_id', auth()->id());
+                })
+                ->count(),
+
+            'total_nilai' => Submission::where('student_id', auth()->id())
+                ->whereNotNull('graded_at')
+                ->whereHas('assignment', function ($query) use ($classIds) {
+                    $query->published()
+                        ->whereIn('class_id', $classIds);
+                })
+                ->count(),
+
+            'absensi_terbuka' => Attendance::whereIn('class_id', $classIds)
+                ->where('is_open', true)
+                ->count(),
         ];
 
         $latestMaterials = Material::with('kelas.course')
@@ -36,7 +55,13 @@ class MahasiswaDashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $upcomingAssignments = Assignment::with(['kelas.course', 'submissions' => fn ($query) => $query->where('student_id', auth()->id())])
+        $upcomingAssignments = Assignment::with([
+                'kelas.course',
+                'submissions' => function ($query) {
+                    $query->where('student_id', auth()->id());
+                },
+            ])
+            ->published()
             ->whereIn('class_id', $classIds)
             ->where('deadline', '>=', now())
             ->orderBy('deadline')
@@ -49,6 +74,11 @@ class MahasiswaDashboardController extends Controller
             ->limit(5)
             ->get();
 
-        return view('student.dashboard', compact('statistics', 'latestMaterials', 'upcomingAssignments', 'announcements'));
+        return view('student.dashboard', compact(
+            'statistics',
+            'latestMaterials',
+            'upcomingAssignments',
+            'announcements'
+        ));
     }
 }

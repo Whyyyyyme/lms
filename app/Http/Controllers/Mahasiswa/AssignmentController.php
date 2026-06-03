@@ -17,9 +17,15 @@ class AssignmentController extends Controller
 
     public function index(): View
     {
+        $studentClassIds = $this->studentClassIdArray();
+
         $assignments = Assignment::query()
-            ->with(['kelas.course', 'submissions' => fn ($query) => $query->where('student_id', auth()->id())])
-            ->whereIn('class_id', $this->studentClassIds())
+            ->with([
+                'kelas.course',
+                'submissions' => fn ($query) => $query->where('student_id', auth()->id()),
+            ])
+            ->whereIn('class_id', $studentClassIds)
+            ->published()
             ->orderBy('deadline')
             ->paginate(10);
 
@@ -28,7 +34,7 @@ class AssignmentController extends Controller
 
     public function show(Assignment $assignment): View
     {
-        abort_unless(in_array($assignment->class_id, $this->studentClassIds(), true), 403);
+        $this->ensureStudentCanAccessAssignment($assignment);
 
         $assignment->load([
             'kelas.course',
@@ -43,8 +49,13 @@ class AssignmentController extends Controller
 
     public function submit(Request $request, Assignment $assignment): RedirectResponse
     {
-        abort_unless(in_array($assignment->class_id, $this->studentClassIds(), true), 403);
-        abort_if(now()->greaterThan($assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
+        $this->ensureStudentCanAccessAssignment($assignment);
+
+        abort_if(
+            now()->greaterThan($assignment->deadline),
+            422,
+            'Deadline tugas sudah berakhir.'
+        );
 
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:102400'],
@@ -84,10 +95,17 @@ class AssignmentController extends Controller
 
     public function updateSubmission(Request $request, Submission $submission): RedirectResponse
     {
-        abort_unless((int) $submission->student_id === auth()->id(), 403);
+        abort_unless((int) $submission->student_id === (int) auth()->id(), 403);
+
         $submission->load('assignment');
-        abort_unless(in_array((int) $submission->assignment->class_id, $this->studentClassIds(), true), 403);
-        abort_if(now()->greaterThan($submission->assignment->deadline), 422, 'Deadline tugas sudah berakhir.');
+
+        $this->ensureStudentCanAccessAssignment($submission->assignment);
+
+        abort_if(
+            now()->greaterThan($submission->assignment->deadline),
+            422,
+            'Deadline tugas sudah berakhir.'
+        );
 
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:102400'],
@@ -111,5 +129,28 @@ class AssignmentController extends Controller
         ]);
 
         return back()->with('success', 'Submission tugas berhasil diperbarui.');
+    }
+
+    private function ensureStudentCanAccessAssignment(Assignment $assignment): void
+    {
+        $studentClassIds = $this->studentClassIdArray();
+
+        abort_unless(
+            in_array((int) $assignment->class_id, $studentClassIds, true),
+            403
+        );
+
+        abort_unless(
+            $assignment->is_published,
+            404
+        );
+    }
+
+    private function studentClassIdArray(): array
+    {
+        return collect($this->studentClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
     }
 }

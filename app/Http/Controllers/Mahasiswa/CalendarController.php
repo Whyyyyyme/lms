@@ -57,6 +57,7 @@ class CalendarController extends Controller
 
         $assignmentEvents = Assignment::query()
             ->with(['kelas.course'])
+            ->published()
             ->whereIn('class_id', $classIds)
             ->whereBetween('deadline', [
                 $calendarStart->copy()->startOfDay(),
@@ -132,6 +133,7 @@ class CalendarController extends Controller
         $classIds = $this->studentClassIds();
 
         $assignments = Assignment::with('kelas.course')
+            ->published()
             ->whereIn('class_id', $classIds)
             ->orderBy('deadline')
             ->get();
