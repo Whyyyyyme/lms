@@ -15,6 +15,6 @@ return [
     'max_context_assignments' => env('LMS_AI_MAX_CONTEXT_ASSIGNMENTS', 10),
     'max_history_messages' => env('LMS_AI_MAX_HISTORY_MESSAGES', 8),
     'temperature' => env('LMS_AI_TEMPERATURE', 0.3),
-    'max_output_tokens' => env('LMS_AI_MAX_OUTPUT_TOKENS', 900),
+    'max_output_tokens' => env('LMS_AI_MAX_OUTPUT_TOKENS', 1500),
     'fallback_enabled' => env('LMS_AI_FALLBACK_ENABLED', true),
 ];

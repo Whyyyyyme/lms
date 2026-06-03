@@ -16,6 +16,7 @@ class Assignment extends Model
         'title',
         'description',
         'file_path',
+        'extracted_text',
         'deadline',
         'max_score',
         'created_by',
@@ -121,5 +122,13 @@ class Assignment extends Model
         }
 
         return 'Dipublikasikan';
+    }
+
+    /**
+     * Cek apakah tugas punya hasil ekstraksi isi file.
+     */
+    public function hasExtractedText(): bool
+    {
+        return filled($this->extracted_text);
     }
 }

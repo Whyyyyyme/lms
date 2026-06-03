@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\HandlesLmsNotifications;
 use App\Http\Controllers\Concerns\ResolvesClassAccess;
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
+use App\Services\Ai\FileTextExtractor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,7 +36,7 @@ class AssignmentController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, FileTextExtractor $fileTextExtractor): RedirectResponse
     {
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,id'],
@@ -55,9 +56,13 @@ class AssignmentController extends Controller
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
-        $filePath = $request->hasFile('file')
-            ? $request->file('file')->store('assignments', 'public')
-            : null;
+        $filePath = null;
+        $extractedText = null;
+
+        if ($request->hasFile('file')) {
+            $filePath = $request->file('file')->store('assignments', 'public');
+            $extractedText = $fileTextExtractor->extractFromStoragePath($filePath, 'public');
+        }
 
         $publishedAt = $request->filled('published_at')
             ? Carbon::parse($validated['published_at'])
@@ -68,6 +73,7 @@ class AssignmentController extends Controller
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'file_path' => $filePath,
+            'extracted_text' => $extractedText,
             'deadline' => $validated['deadline'],
             'max_score' => $validated['max_score'],
             'created_by' => auth()->id(),
@@ -77,24 +83,6 @@ class AssignmentController extends Controller
 
         if ($this->assignmentShouldAppearNow($assignment)) {
             $this->sendAssignmentCreatedNotification($assignment);
-        $classInfo = $this->classContext($class);
-
-$this->notifyUsers(
-    $this->classStudents($class),
-    'assignment_created',
-    'Tugas Baru',
-    "{$assignment->title} telah dibuat untuk {$classInfo['label']}.",
-    [
-        'assignment_id' => $assignment->id,
-        'class_id' => $class->id,
-        'course_name' => $classInfo['course_name'],
-        'course_code' => $classInfo['course_code'],
-        'class_name' => $classInfo['class_name'],
-        'context_label' => $classInfo['label'],
-        'deadline' => $assignment->deadline?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
-        'url' => route('student.assignments.show', $assignment),
-    ]
-);
 
             $assignment->update([
                 'published_notification_sent_at' => now(),
@@ -103,7 +91,7 @@ $this->notifyUsers(
 
         return redirect()
             ->route('assistant.tugas.index')
-            ->with('success', 'Tugas berhasil dibuat.');
+            ->with('success', $this->assignmentSuccessMessage('Tugas berhasil dibuat.', $filePath, $extractedText));
     }
 
     public function show(Assignment $assignment): View
@@ -125,7 +113,7 @@ $this->notifyUsers(
         ]);
     }
 
-    public function update(Request $request, Assignment $assignment): RedirectResponse
+    public function update(Request $request, Assignment $assignment, FileTextExtractor $fileTextExtractor): RedirectResponse
     {
         $this->assistantClassOrFail((int) $assignment->class_id);
 
@@ -150,6 +138,7 @@ $this->notifyUsers(
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
         $filePath = $assignment->file_path;
+        $extractedText = $assignment->extracted_text;
 
         if ($request->hasFile('file')) {
             if ($filePath) {
@@ -157,6 +146,7 @@ $this->notifyUsers(
             }
 
             $filePath = $request->file('file')->store('assignments', 'public');
+            $extractedText = $fileTextExtractor->extractFromStoragePath($filePath, 'public');
         }
 
         $publishedAt = $request->filled('published_at')
@@ -168,6 +158,7 @@ $this->notifyUsers(
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'file_path' => $filePath,
+            'extracted_text' => $extractedText,
             'deadline' => $validated['deadline'],
             'max_score' => $validated['max_score'],
             'published_at' => $publishedAt,
@@ -187,7 +178,7 @@ $this->notifyUsers(
 
         return redirect()
             ->route('assistant.tugas.index')
-            ->with('success', 'Tugas berhasil diperbarui.');
+            ->with('success', $this->assignmentSuccessMessage('Tugas berhasil diperbarui.', $filePath, $extractedText));
     }
 
     public function destroy(Assignment $assignment): RedirectResponse
@@ -220,20 +211,37 @@ $this->notifyUsers(
             return;
         }
 
-        $courseName = $class->course?->name ?? 'Mata kuliah praktikum';
+        $classInfo = $this->classContext($class);
 
         $this->notifyUsers(
             $this->classStudents($class),
             'assignment_created',
-            'Tugas Baru Dibuat',
-            "Tugas {$assignment->title} untuk {$courseName} telah dibuat. Deadline: {$assignment->deadline->format('d/m/Y H:i')}.",
+            'Tugas Baru',
+            "{$assignment->title} telah dibuat untuk {$classInfo['label']}.",
             [
                 'assignment_id' => $assignment->id,
                 'class_id' => $class->id,
                 'course_id' => $class->course_id,
-                'course_name' => $courseName,
-                'deadline' => $assignment->deadline?->toDateTimeString(),
+                'course_name' => $classInfo['course_name'],
+                'course_code' => $classInfo['course_code'],
+                'class_name' => $classInfo['class_name'],
+                'context_label' => $classInfo['label'],
+                'deadline' => $assignment->deadline?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
+                'url' => route('student.assignments.show', $assignment),
             ]
         );
+    }
+
+    private function assignmentSuccessMessage(string $baseMessage, ?string $filePath, ?string $extractedText): string
+    {
+        if (! $filePath) {
+            return $baseMessage;
+        }
+
+        if (filled($extractedText)) {
+            return $baseMessage . ' Isi file berhasil dibaca oleh AI.';
+        }
+
+        return $baseMessage . ' File berhasil diunggah, tetapi isi file belum bisa dibaca oleh AI. Jika file berupa PDF hasil scan/gambar, fitur ini membutuhkan OCR.';
     }
 }

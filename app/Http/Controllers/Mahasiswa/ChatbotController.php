@@ -11,8 +11,10 @@ use Illuminate\View\View;
 
 class ChatbotController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $this->ensureStudent($request);
+
         return view('student.chatbot.index');
     }
 
@@ -22,6 +24,8 @@ class ChatbotController extends Controller
      */
     public function send(Request $request, GeminiChatbotService $chatbot): RedirectResponse
     {
+        $this->ensureStudent($request);
+
         $validated = $request->validate([
             'message' => ['required', 'string', 'min:2', 'max:2000'],
         ]);
@@ -29,6 +33,11 @@ class ChatbotController extends Controller
         $user = $request->user();
         $question = trim($validated['message']);
 
+        /*
+         * Simpan pertanyaan hanya untuk akun mahasiswa yang sedang login.
+         * Riwayat ini hanya untuk tampilan, bukan untuk sumber fakta AI.
+         * GeminiChatbotService yang sudah diperbaiki tidak lagi mengirim ChatHistory lama ke Gemini.
+         */
         ChatHistory::create([
             'user_id' => $user->id,
             'role' => 'user',
@@ -44,5 +53,37 @@ class ChatbotController extends Controller
         ]);
 
         return back()->with('chatbot_answer', $answer);
+    }
+
+    /**
+     * Hapus riwayat chatbot hanya milik akun yang sedang login.
+     * Ini penting setelah sebelumnya AI sempat menampilkan data dari kelas lain.
+     */
+    public function clear(Request $request): RedirectResponse
+    {
+        $this->ensureStudent($request);
+
+        ChatHistory::query()
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        return back()->with('success', 'Riwayat chatbot berhasil dihapus.');
+    }
+
+    private function ensureStudent(Request $request): void
+    {
+        $user = $request->user();
+
+        abort_if(! $user, 403);
+
+        /*
+         * Mendukung dua kemungkinan:
+         * 1. role dari Spatie: hasRole('mahasiswa')
+         * 2. kolom biasa users.role = mahasiswa
+         */
+        $isStudentBySpatie = method_exists($user, 'hasRole') && $user->hasRole('mahasiswa');
+        $isStudentByColumn = $user->getAttribute('role') === 'mahasiswa';
+
+        abort_unless($isStudentBySpatie || $isStudentByColumn, 403);
     }
 }

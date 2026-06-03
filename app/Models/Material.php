@@ -15,6 +15,7 @@ class Material extends Model
         'title',
         'description',
         'file_path',
+        'extracted_text',
         'type',
         'created_by',
         'published_at',
@@ -39,6 +40,15 @@ class Material extends Model
 
     public function scopePublished($query)
     {
-        return $query->whereNotNull('published_at')->where('published_at', '<=', now());
+        return $query->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
+    }
+
+    /**
+     * Cek apakah materi punya hasil ekstraksi isi file.
+     */
+    public function hasExtractedText(): bool
+    {
+        return filled($this->extracted_text);
     }
 }
