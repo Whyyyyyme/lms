@@ -77,6 +77,24 @@ class AssignmentController extends Controller
 
         if ($this->assignmentShouldAppearNow($assignment)) {
             $this->sendAssignmentCreatedNotification($assignment);
+        $classInfo = $this->classContext($class);
+
+$this->notifyUsers(
+    $this->classStudents($class),
+    'assignment_created',
+    'Tugas Baru',
+    "{$assignment->title} telah dibuat untuk {$classInfo['label']}.",
+    [
+        'assignment_id' => $assignment->id,
+        'class_id' => $class->id,
+        'course_name' => $classInfo['course_name'],
+        'course_code' => $classInfo['course_code'],
+        'class_name' => $classInfo['class_name'],
+        'context_label' => $classInfo['label'],
+        'deadline' => $assignment->deadline?->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB',
+        'url' => route('student.assignments.show', $assignment),
+    ]
+);
 
             $assignment->update([
                 'published_notification_sent_at' => now(),

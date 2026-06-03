@@ -29,4 +29,22 @@ trait HandlesLmsNotifications
             ]);
         });
     }
+
+    protected function classContext($class): array
+{
+    if ($class && method_exists($class, 'loadMissing')) {
+        $class->loadMissing('course');
+    }
+
+    $courseName = $class?->course?->name ?? 'Mata kuliah tidak diketahui';
+    $courseCode = $class?->course?->code ?? null;
+    $className = $class?->name ?? 'Kelas tidak diketahui';
+
+    return [
+        'course_name' => $courseName,
+        'course_code' => $courseCode,
+        'class_name' => $className,
+        'label' => trim(($courseCode ? "{$courseCode} - " : '') . "{$courseName} - {$className}"),
+    ];
+}
 }

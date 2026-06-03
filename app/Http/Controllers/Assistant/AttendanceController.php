@@ -223,15 +223,24 @@ class AttendanceController extends Controller
             return;
         }
 
-        $this->notifyUsers(
-            $students,
-            'attendance_opened',
-            'Absensi Praktikum Dibuka',
-            "Absensi untuk {$attendance->kelas->name} sudah dibuka. Silakan check-in sekarang.",
-            [
-                'attendance_id' => $attendance->id,
-                'class_id' => $attendance->class_id,
-            ]
-        );
+        $classInfo = $this->classContext($class);
+
+$this->notifyUsers(
+    $this->classStudents($class),
+    'attendance_opened',
+    'Absensi Dibuka',
+    "Absensi untuk {$classInfo['label']}.",
+    [
+        'attendance_id' => $attendance->id,
+        'class_id' => $class->id,
+        'course_name' => $classInfo['course_name'],
+        'course_code' => $classInfo['course_code'],
+        'class_name' => $classInfo['class_name'],
+        'context_label' => $classInfo['label'],
+        'session_date' => $attendance->session_date?->format('d M Y'),
+        'opened_at' => $attendance->opened_at?->timezone('Asia/Jakarta')->format('H:i') . ' WIB',
+        'url' => route('student.attendances.index'),
+    ]
+);
     }
 }
