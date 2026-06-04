@@ -18,14 +18,16 @@ class AttendanceController extends Controller
 {
     use HandlesLmsNotifications, ResolvesClassAccess;
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $selectedClass = $this->selectedAssistantClassFromRequest($request);
         $classIds = $this->assistantClassesQuery()->pluck('id');
 
         $attendances = Attendance::query()
             ->with(['kelas.course.studySemester', 'opener'])
             ->withCount('records')
             ->whereIn('class_id', $classIds)
+            ->when($selectedClass, fn ($query) => $query->where('class_id', $selectedClass->id))
             ->latest('opened_at')
             ->latest('session_date')
             ->paginate(10);
@@ -34,10 +36,10 @@ class AttendanceController extends Controller
             $this->refreshAttendanceStatus($attendance);
         });
 
-        return view('assistant.attendances.index', compact('attendances'));
+        return view('assistant.attendances.index', compact('attendances', 'selectedClass'));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('assistant.attendances.create', [
             'classes' => $this->assistantClassesQuery()
@@ -45,6 +47,7 @@ class AttendanceController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(),
+            'selectedClass' => $this->selectedAssistantClassFromRequest($request),
         ]);
     }
 
@@ -209,7 +212,7 @@ class AttendanceController extends Controller
 
     public function destroy(Attendance $attendance): RedirectResponse
     {
-        $this->assistantClassOrFail((int) $attendance->class_id);
+        $class = $this->assistantClassOrFail((int) $attendance->class_id);
 
         $hasImportantRecords = $attendance->records()
             ->whereIn('status', ['hadir', 'izin'])
@@ -222,8 +225,19 @@ class AttendanceController extends Controller
         $attendance->delete();
 
         return redirect()
-            ->route('assistant.attendances.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', 'Sesi absensi berhasil dihapus.');
+    }
+
+    private function selectedAssistantClassFromRequest(Request $request)
+    {
+        if (! $request->filled('class_id')) {
+            return null;
+        }
+
+        return $this->assistantClassesQuery()
+            ->with(['course.studySemester'])
+            ->find($request->integer('class_id'));
     }
 
     private function refreshAttendanceStatus(Attendance $attendance): bool

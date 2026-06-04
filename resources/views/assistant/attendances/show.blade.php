@@ -98,7 +98,7 @@
     <div style="height:12px;"></div>
 
     <div class="actions-inline">
-        <a href="{{ route('assistant.attendances.index') }}" class="btn">
+        <a href="{{ $attendance->kelas ? route('assistant.courses.show', $attendance->kelas) : route('assistant.attendances.index') }}" class="btn">
             Kembali
         </a>
 

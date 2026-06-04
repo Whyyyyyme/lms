@@ -3,6 +3,13 @@
 @section('title', 'Buat Tugas')
 
 @section('content')
+@php
+    $selectedClass = $selectedClass ?? null;
+    $cancelUrl = $selectedClass
+        ? route('assistant.courses.show', $selectedClass)
+        : route('assistant.courses.index');
+@endphp
+
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Buat Tugas',
@@ -34,7 +41,7 @@
         >
 
         <p class="form-help">
-            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
+            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi, tugas baru akan muncul sesuai waktu publikasi ini.
         </p>
 
         @error('published_at')
@@ -45,7 +52,7 @@
     </div>
 
     @include('partials.form.actions', [
-        'cancel' => route('assistant.tugas.index'),
+        'cancel' => $cancelUrl,
         'label' => 'Simpan Tugas'
     ])
 </form>

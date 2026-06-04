@@ -1,178 +1,35 @@
-@extends('layouts.app', ['title' => 'Tambah Materi'])
+@extends('layouts.app')
+
+@section('title', 'Tambah Materi')
 
 @section('content')
+@php
+    $selectedClass = $selectedClass ?? null;
+    $cancelUrl = $selectedClass
+        ? route('assistant.courses.show', $selectedClass)
+        : route('assistant.courses.index');
+@endphp
+
 @include('partials.page-header', [
-    'eyebrow' => 'Asisten Praktikum',
+    'eyebrow' => 'Asisten',
     'title' => 'Tambah Materi',
-    'description' => 'Unggah materi PDF atau tambahkan link materi pembelajaran.',
+    'description' => 'Unggah materi PDF atau tambahkan link materi pembelajaran.'
 ])
 
-<form action="{{ route('assistant.materi.store') }}"
-      method="POST"
-      enctype="multipart/form-data"
-      x-data="{ type: '{{ old('type', 'pdf') }}' }"
-      class="space-y-5 rounded-3xl border bg-white p-6 shadow-sm">
+@if(($classes ?? collect())->isEmpty())
+    <div class="alert alert-error">
+        Kamu belum ditugaskan ke kelas mana pun. Minta admin mengatur kelas praktikum terlebih dahulu.
+    </div>
+@endif
+
+<form action="{{ route('assistant.materi.store') }}" method="POST" enctype="multipart/form-data" class="form-card">
     @csrf
 
-    <div>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Kelas Praktikum
-        </label>
+    @include('assistant.materials._form')
 
-        <select name="class_id"
-                class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required>
-            <option value="">Pilih kelas</option>
-
-            @foreach($classes as $class)
-                @php
-                    $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
-                    $courseCode = $class->course?->code;
-                    $semesterName = $class->course?->studySemester?->name;
-                @endphp
-
-                <option value="{{ $class->id }}" @selected(old('class_id') == $class->id)>
-                    {{ $courseName }}
-                    @if($courseCode)
-                        ({{ $courseCode }})
-                    @endif
-                    - {{ $class->name }}
-                    @if($semesterName)
-                        - {{ $semesterName }}
-                    @endif
-                </option>
-            @endforeach
-        </select>
-
-        @error('class_id')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Judul Materi
-        </label>
-
-        <input type="text"
-               name="title"
-               value="{{ old('title') }}"
-               class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-               placeholder="Contoh: Pertemuan 1 - Pengenalan Laravel"
-               required>
-
-        @error('title')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Deskripsi
-        </label>
-
-        <textarea name="description"
-                  rows="4"
-                  class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Tulis deskripsi singkat materi...">{{ old('description') }}</textarea>
-
-        @error('description')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Tipe Materi
-        </label>
-
-        <select name="type"
-                x-model="type"
-                class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required>
-            <option value="pdf">PDF</option>
-            <option value="link">Link</option>
-        </select>
-
-        <p class="mt-2 text-xs text-slate-500">
-            Pilih PDF jika ingin mengunggah file. Pilih Link jika materi berasal dari YouTube, Google Drive, website, atau sumber online lainnya.
-        </p>
-
-        @error('type')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div x-show="type === 'pdf'" x-cloak>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Upload File PDF
-        </label>
-
-        <input type="file"
-               name="file"
-               accept="application/pdf,.pdf"
-               :required="type === 'pdf'"
-               class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-bold file:text-indigo-700 hover:file:bg-indigo-100">
-
-        <p class="mt-2 text-xs text-slate-500">
-            Hanya file PDF. Maksimal 100 MB. Isi PDF akan dicoba dibaca oleh AI jika file dapat diproses.
-        </p>
-
-        @error('file')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div x-show="type === 'link'" x-cloak>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Link Materi
-        </label>
-
-        <input type="url"
-               name="link"
-               value="{{ old('link') }}"
-               :required="type === 'link'"
-               class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-               placeholder="Contoh: https://youtube.com/... atau https://drive.google.com/...">
-
-        <p class="mt-2 text-xs text-slate-500">
-            Bisa menggunakan link YouTube, Google Drive, Vimeo, Loom, website, atau link materi online lainnya.
-        </p>
-
-        @error('link')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label class="mb-2 block text-sm font-bold text-slate-700">
-            Waktu Publikasi
-        </label>
-
-        <input type="datetime-local"
-               name="published_at"
-               value="{{ old('published_at') }}"
-               class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-
-        <p class="mt-2 text-xs text-slate-500">
-            Kosongkan jika ingin langsung dipublikasikan.
-        </p>
-
-        @error('published_at')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-        <button type="submit"
-                class="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700">
-            Simpan Materi
-        </button>
-
-        <a href="{{ route('assistant.materi.index') }}"
-           class="rounded-2xl border bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
-            Batal
-        </a>
-    </div>
+    @include('partials.form.actions', [
+        'cancel' => $cancelUrl,
+        'label' => 'Simpan Materi'
+    ])
 </form>
 @endsection

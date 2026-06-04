@@ -19,7 +19,12 @@ class MahasiswaDashboardController extends Controller
     {
         $classIds = $this->studentClassIds();
 
+        $classes = $this->studentClasses()
+            ->load(['course.studySemester', 'course.academicYear', 'assistant']);
+
         $statistics = [
+            'total_kelas' => count($classIds),
+
             'total_materi' => Material::published()
                 ->whereIn('class_id', $classIds)
                 ->count(),
@@ -44,9 +49,14 @@ class MahasiswaDashboardController extends Controller
                 ->count(),
 
             'absensi_terbuka' => Attendance::whereIn('class_id', $classIds)
-                ->where('is_open', true)
+                ->whereNotNull('opened_at')
+                ->whereNotNull('closed_at')
+                ->where('opened_at', '<=', now())
+                ->where('closed_at', '>', now())
                 ->count(),
         ];
+
+        $this->attachClassCardData($classes);
 
         $latestMaterials = Material::with('kelas.course')
             ->published()
@@ -76,9 +86,50 @@ class MahasiswaDashboardController extends Controller
 
         return view('student.dashboard', compact(
             'statistics',
+            'classes',
             'latestMaterials',
             'upcomingAssignments',
             'announcements'
         ));
+    }
+
+    private function attachClassCardData($classes): void
+    {
+        if ($classes->isEmpty()) {
+            return;
+        }
+
+        $classIds = $classes->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $studentId = (int) auth()->id();
+
+        $materialCounts = Material::query()
+            ->published()
+            ->whereIn('class_id', $classIds)
+            ->selectRaw('class_id, COUNT(*) as total')
+            ->groupBy('class_id')
+            ->pluck('total', 'class_id');
+
+        $assignmentCounts = Assignment::query()
+            ->published()
+            ->whereIn('class_id', $classIds)
+            ->selectRaw('class_id, COUNT(*) as total')
+            ->groupBy('class_id')
+            ->pluck('total', 'class_id');
+
+        $pendingCounts = Assignment::query()
+            ->published()
+            ->whereIn('class_id', $classIds)
+            ->whereDoesntHave('submissions', fn ($query) => $query->where('student_id', $studentId))
+            ->selectRaw('class_id, COUNT(*) as total')
+            ->groupBy('class_id')
+            ->pluck('total', 'class_id');
+
+        $classes->each(function ($class) use ($materialCounts, $assignmentCounts, $pendingCounts): void {
+            $classId = (int) $class->id;
+
+            $class->setAttribute('published_materials_count', (int) ($materialCounts[$classId] ?? 0));
+            $class->setAttribute('published_assignments_count', (int) ($assignmentCounts[$classId] ?? 0));
+            $class->setAttribute('pending_assignments_count', (int) ($pendingCounts[$classId] ?? 0));
+        });
     }
 }

@@ -3,6 +3,13 @@
 @section('title', 'Buat Absensi')
 
 @section('content')
+@php
+    $selectedClass = $selectedClass ?? null;
+    $cancelUrl = $selectedClass
+        ? route('assistant.courses.show', $selectedClass)
+        : route('assistant.courses.index');
+@endphp
+
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Buat Sesi Absensi',
@@ -25,32 +32,48 @@
     @csrf
 
     <div class="form-grid">
-        @include('partials.form.select', [
-            'label' => 'Kelas Praktikum',
-            'name' => 'class_id',
-            'required' => true
-        ])
-            <option value="">Pilih kelas praktikum</option>
+        @if($selectedClass)
+            <input type="hidden" name="class_id" value="{{ $selectedClass->id }}">
 
-            @foreach(($classes ?? collect()) as $class)
-                @php
-                    $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
-                    $courseCode = $class->course?->code;
-                    $semesterName = $class->course?->studySemester?->name;
-                @endphp
+            <div class="alert" style="grid-column:1/-1;">
+                <strong>Mata Kuliah:</strong>
+                {{ $selectedClass->course?->name ?? 'Mata kuliah tidak tersedia' }}
+                @if($selectedClass->course?->code)
+                    ({{ $selectedClass->course->code }})
+                @endif
+                · {{ $selectedClass->name }}
+                @if($selectedClass->course?->studySemester)
+                    · {{ $selectedClass->course->studySemester->name }}
+                @endif
+            </div>
+        @else
+            @include('partials.form.select', [
+                'label' => 'Kelas Praktikum',
+                'name' => 'class_id',
+                'required' => true
+            ])
+                <option value="">Pilih kelas praktikum</option>
 
-                <option value="{{ $class->id }}" @selected((string) old('class_id') === (string) $class->id)>
-                    {{ $courseName }}
-                    @if($courseCode)
-                        ({{ $courseCode }})
-                    @endif
-                    - {{ $class->name }}
-                    @if($semesterName)
-                        - {{ $semesterName }}
-                    @endif
-                </option>
-            @endforeach
-        </select></label>
+                @foreach(($classes ?? collect()) as $class)
+                    @php
+                        $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
+                        $courseCode = $class->course?->code;
+                        $semesterName = $class->course?->studySemester?->name;
+                    @endphp
+
+                    <option value="{{ $class->id }}" @selected((string) old('class_id') === (string) $class->id)>
+                        {{ $courseName }}
+                        @if($courseCode)
+                            ({{ $courseCode }})
+                        @endif
+                        - {{ $class->name }}
+                        @if($semesterName)
+                            - {{ $semesterName }}
+                        @endif
+                    </option>
+                @endforeach
+            </select></label>
+        @endif
 
         @include('partials.form.input', [
             'label' => 'Tanggal & Jam Dibuka',
@@ -72,7 +95,7 @@
     </div>
 
     @include('partials.form.actions', [
-        'cancel' => route('assistant.attendances.index'),
+        'cancel' => $cancelUrl,
         'label' => 'Buat Absensi'
     ])
 </form>

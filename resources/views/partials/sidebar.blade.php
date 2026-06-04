@@ -182,33 +182,11 @@
             @if(Route::has('assistant.dashboard'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/dashboard') }}"
+                    class="sidebar-link {{ $isActive('asisten/dashboard') || $isActive('asisten/mata-kuliah*') }}"
                     href="{{ route('assistant.dashboard') }}"
                 >
-                    <span class="sidebar-icon">🏠</span>
-                    <span>Dashboard</span>
-                </a>
-            @endif
-
-            @if(Route::has('assistant.materi.index'))
-                <a
-                    data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/materi*') }}"
-                    href="{{ route('assistant.materi.index') }}"
-                >
-                    <span class="sidebar-icon">📘</span>
-                    <span>Materi</span>
-                </a>
-            @endif
-
-            @if(Route::has('assistant.tugas.index'))
-                <a
-                    data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/tugas*') }}"
-                    href="{{ route('assistant.tugas.index') }}"
-                >
-                    <span class="sidebar-icon">📝</span>
-                    <span>Tugas</span>
+                    <span class="sidebar-icon">📚</span>
+                    <span>Mata Kuliah</span>
                 </a>
             @endif
 
@@ -220,17 +198,6 @@
                 >
                     <span class="sidebar-icon">📥</span>
                     <span>Submission</span>
-                </a>
-            @endif
-
-            @if(Route::has('assistant.attendances.index'))
-                <a
-                    data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/absensi*') }}"
-                    href="{{ route('assistant.attendances.index') }}"
-                >
-                    <span class="sidebar-icon">✅</span>
-                    <span>Absensi</span>
                 </a>
             @endif
 
@@ -284,25 +251,25 @@
                 </a>
             @endif
 
-            @if(Route::has('student.materials.index'))
+            @if(Route::has('student.courses.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/materi*') }}"
-                    href="{{ route('student.materials.index') }}"
+                    class="sidebar-link {{ $isActive('mahasiswa/mata-kuliah*') }}"
+                    href="{{ route('student.courses.index') }}"
                 >
-                    <span class="sidebar-icon">📘</span>
-                    <span>Materi</span>
+                    <span class="sidebar-icon">📚</span>
+                    <span>Mata Kuliah Saya</span>
                 </a>
             @endif
 
-            @if(Route::has('student.assignments.index'))
+            @if(Route::has('student.schedule.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/tugas*') }}"
-                    href="{{ route('student.assignments.index') }}"
+                    class="sidebar-link {{ $isActive('mahasiswa/jadwal*') }}"
+                    href="{{ route('student.schedule.index') }}"
                 >
-                    <span class="sidebar-icon">📝</span>
-                    <span>Tugas</span>
+                    <span class="sidebar-icon">📅</span>
+                    <span>Jadwal Praktikum</span>
                 </a>
             @endif
 
@@ -313,29 +280,7 @@
                     href="{{ route('student.grades.index') }}"
                 >
                     <span class="sidebar-icon">⭐</span>
-                    <span>Nilai</span>
-                </a>
-            @endif
-
-            @if(Route::has('student.attendances.index'))
-                <a
-                    data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/absensi*') }}"
-                    href="{{ route('student.attendances.index') }}"
-                >
-                    <span class="sidebar-icon">✅</span>
-                    <span>Absensi</span>
-                </a>
-            @endif
-
-            @if(Route::has('student.calendar.index'))
-                <a
-                    data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/kalender*') }}"
-                    href="{{ route('student.calendar.index') }}"
-                >
-                    <span class="sidebar-icon">📅</span>
-                    <span>Jadwal & Kalender</span>
+                    <span>Nilai Saya</span>
                 </a>
             @endif
 

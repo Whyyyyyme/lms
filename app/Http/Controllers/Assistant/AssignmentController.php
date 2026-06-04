@@ -17,22 +17,26 @@ class AssignmentController extends Controller
 {
     use HandlesLmsNotifications, ResolvesClassAccess;
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $selectedClass = $this->selectedAssistantClassFromRequest($request);
+
         $assignments = Assignment::query()
             ->with(['kelas.course', 'creator'])
             ->withCount('submissions')
             ->whereIn('class_id', $this->assistantClassesQuery()->pluck('id'))
+            ->when($selectedClass, fn ($query) => $query->where('class_id', $selectedClass->id))
             ->latest('deadline')
             ->paginate(10);
 
-        return view('assistant.assignments.index', compact('assignments'));
+        return view('assistant.assignments.index', compact('assignments', 'selectedClass'));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('assistant.assignments.create', [
-            'classes' => $this->assistantClassesQuery()->with('course')->get(),
+            'classes' => $this->assistantClassesQuery()->with(['course.studySemester'])->get(),
+            'selectedClass' => $this->selectedAssistantClassFromRequest($request),
         ]);
     }
 
@@ -90,7 +94,7 @@ class AssignmentController extends Controller
         }
 
         return redirect()
-            ->route('assistant.tugas.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', $this->assignmentSuccessMessage('Tugas berhasil dibuat.', $filePath, $extractedText));
     }
 
@@ -107,9 +111,12 @@ class AssignmentController extends Controller
     {
         $this->assistantClassOrFail((int) $assignment->class_id);
 
+        $assignment->loadMissing(['kelas.course.studySemester']);
+
         return view('assistant.assignments.edit', [
             'assignment' => $assignment,
-            'classes' => $this->assistantClassesQuery()->with('course')->get(),
+            'classes' => $this->assistantClassesQuery()->with(['course.studySemester'])->get(),
+            'selectedClass' => $assignment->kelas,
         ]);
     }
 
@@ -177,13 +184,13 @@ class AssignmentController extends Controller
         }
 
         return redirect()
-            ->route('assistant.tugas.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', $this->assignmentSuccessMessage('Tugas berhasil diperbarui.', $filePath, $extractedText));
     }
 
     public function destroy(Assignment $assignment): RedirectResponse
     {
-        $this->assistantClassOrFail((int) $assignment->class_id);
+        $class = $this->assistantClassOrFail((int) $assignment->class_id);
 
         if ($assignment->file_path) {
             Storage::disk('public')->delete($assignment->file_path);
@@ -192,8 +199,19 @@ class AssignmentController extends Controller
         $assignment->delete();
 
         return redirect()
-            ->route('assistant.tugas.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', 'Tugas berhasil dihapus.');
+    }
+
+    private function selectedAssistantClassFromRequest(Request $request)
+    {
+        if (! $request->filled('class_id')) {
+            return null;
+        }
+
+        return $this->assistantClassesQuery()
+            ->with(['course.studySemester'])
+            ->find($request->integer('class_id'));
     }
 
     private function assignmentShouldAppearNow(Assignment $assignment): bool

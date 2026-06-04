@@ -3,6 +3,13 @@
 @section('title', 'Edit Tugas')
 
 @section('content')
+@php
+    $selectedClass = $selectedClass ?? $assignment->kelas;
+    $cancelUrl = $selectedClass
+        ? route('assistant.courses.show', $selectedClass)
+        : route('assistant.tugas.index');
+@endphp
+
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Edit Tugas',
@@ -24,24 +31,24 @@
             type="datetime-local"
             id="published_at"
             name="published_at"
-            value="{{ old('published_at', $assignment->published_at ? $assignment->published_at->format('Y-m-d\TH:i') : '') }}"
+            value="{{ old('published_at', $assignment->published_at ? $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('Y-m-d\TH:i') : '') }}"
             class="form-control @error('published_at') is-invalid @enderror"
         >
 
         <p class="form-help">
-            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi dengan waktu masa depan, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
+            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi dengan waktu masa depan, tugas baru akan muncul sesuai waktu publikasi ini.
         </p>
 
         @if($assignment->published_at)
             @if($assignment->published_at->isFuture())
                 <p class="mt-2 text-sm text-yellow-700">
                     Status saat ini: tugas masih terjadwal dan akan tampil pada
-                    <strong>{{ $assignment->published_at->format('d/m/Y H:i') }}</strong>.
+                    <strong>{{ $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y H:i') }} WIB</strong>.
                 </p>
             @else
                 <p class="mt-2 text-sm text-green-700">
                     Status saat ini: tugas sudah dipublikasikan sejak
-                    <strong>{{ $assignment->published_at->format('d/m/Y H:i') }}</strong>.
+                    <strong>{{ $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y H:i') }} WIB</strong>.
                 </p>
             @endif
         @else
@@ -58,7 +65,7 @@
     </div>
 
     @include('partials.form.actions', [
-        'cancel' => route('assistant.tugas.index'),
+        'cancel' => $cancelUrl,
         'label' => 'Update Tugas'
     ])
 </form>

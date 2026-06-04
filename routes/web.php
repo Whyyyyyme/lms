@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Assistant\AnnouncementController as AssistantAnnouncementController;
 use App\Http\Controllers\Assistant\AssignmentController as AssistantAssignmentController;
 use App\Http\Controllers\Assistant\AssistantDashboardController;
+use App\Http\Controllers\Assistant\CourseWorkspaceController as AssistantCourseWorkspaceController;
 use App\Http\Controllers\Assistant\AttendanceController as AssistantAttendanceController;
 use App\Http\Controllers\Assistant\ExportController as AssistantExportController;
 use App\Http\Controllers\Assistant\MaterialController as AssistantMaterialController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Mahasiswa\AssignmentController as StudentAssignmentCont
 use App\Http\Controllers\Mahasiswa\AttendanceController as StudentAttendanceController;
 use App\Http\Controllers\Mahasiswa\CalendarController as StudentCalendarController;
 use App\Http\Controllers\Mahasiswa\ChatbotController as StudentChatbotController;
+use App\Http\Controllers\Mahasiswa\CourseWorkspaceController as StudentCourseWorkspaceController;
 use App\Http\Controllers\Mahasiswa\GradeController as StudentGradeController;
 use App\Http\Controllers\Mahasiswa\MahasiswaDashboardController;
 use App\Http\Controllers\Mahasiswa\MaterialController as StudentMaterialController;
@@ -88,7 +90,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->name('assistant.')
         ->middleware('role:asisten')
         ->group(function () {
-            Route::get('/dashboard', [AssistantDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/dashboard', [AssistantCourseWorkspaceController::class, 'index'])->name('dashboard');
+            Route::get('/mata-kuliah', [AssistantCourseWorkspaceController::class, 'index'])->name('courses.index');
+            Route::get('/mata-kuliah/{praktikumClass}', [AssistantCourseWorkspaceController::class, 'show'])->name('courses.show');
 
             Route::resource('materi', AssistantMaterialController::class)->parameters([
                 'materi' => 'material',
@@ -132,6 +136,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('role:mahasiswa')
         ->group(function () {
             Route::get('/dashboard', [MahasiswaDashboardController::class, 'index'])->name('dashboard');
+
+            Route::get('/mata-kuliah', [StudentCourseWorkspaceController::class, 'index'])->name('courses.index');
+            Route::get('/mata-kuliah/{praktikumClass}', [StudentCourseWorkspaceController::class, 'show'])->name('courses.show');
 
             Route::get('/materi', [StudentMaterialController::class, 'index'])->name('materials.index');
             Route::get('/materi/mata-kuliah/{course}', [StudentMaterialController::class, 'course'])->name('materials.course');

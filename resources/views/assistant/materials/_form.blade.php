@@ -1,4 +1,5 @@
 @php
+    $selectedClass = $selectedClass ?? null;
     $currentType = old('type', $material->type ?? 'pdf');
 
     $currentFilePath = (string) ($material->file_path ?? '');
@@ -26,35 +27,51 @@
         hasExistingPdf: @js($hasExistingPdf)
     }"
 >
-    @include('partials.form.select', [
-        'label' => 'Kelas Praktikum',
-        'name' => 'class_id',
-        'required' => true
-    ])
-        <option value="">Pilih kelas praktikum</option>
+    @if($selectedClass)
+        <input type="hidden" name="class_id" value="{{ $selectedClass->id }}">
 
-        @foreach(($classes ?? collect()) as $class)
-            @php
-                $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
-                $courseCode = $class->course?->code;
-                $semesterName = $class->course?->studySemester?->name;
-            @endphp
+        <div class="alert" style="grid-column:1/-1;">
+            <strong>Mata Kuliah:</strong>
+            {{ $selectedClass->course?->name ?? 'Mata kuliah tidak tersedia' }}
+            @if($selectedClass->course?->code)
+                ({{ $selectedClass->course->code }})
+            @endif
+            · {{ $selectedClass->name }}
+            @if($selectedClass->course?->studySemester)
+                · {{ $selectedClass->course->studySemester->name }}
+            @endif
+        </div>
+    @else
+        @include('partials.form.select', [
+            'label' => 'Kelas Praktikum',
+            'name' => 'class_id',
+            'required' => true
+        ])
+            <option value="">Pilih kelas praktikum</option>
 
-            <option
-                value="{{ $class->id }}"
-                @selected((string) old('class_id', $material->class_id ?? '') === (string) $class->id)
-            >
-                {{ $courseName }}
-                @if($courseCode)
-                    ({{ $courseCode }})
-                @endif
-                - {{ $class->name }}
-                @if($semesterName)
-                    - {{ $semesterName }}
-                @endif
-            </option>
-        @endforeach
-    </select></label>
+            @foreach(($classes ?? collect()) as $class)
+                @php
+                    $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
+                    $courseCode = $class->course?->code;
+                    $semesterName = $class->course?->studySemester?->name;
+                @endphp
+
+                <option
+                    value="{{ $class->id }}"
+                    @selected((string) old('class_id', $material->class_id ?? '') === (string) $class->id)
+                >
+                    {{ $courseName }}
+                    @if($courseCode)
+                        ({{ $courseCode }})
+                    @endif
+                    - {{ $class->name }}
+                    @if($semesterName)
+                        - {{ $semesterName }}
+                    @endif
+                </option>
+            @endforeach
+        </select></label>
+    @endif
 
     @include('partials.form.select', [
         'label' => 'Tipe Materi',
@@ -91,8 +108,7 @@
     <div style="grid-column:1/-1;" x-show="type === 'pdf'" x-cloak>
         @if($hasExistingPdf)
             <div class="alert" style="margin-bottom:12px;">
-                File PDF saat ini sudah tersimpan.
-                Jika tidak ingin mengganti file, kosongkan input upload PDF.
+                File PDF saat ini sudah tersimpan. Kosongkan input upload PDF jika tidak ingin mengganti file.
             </div>
         @endif
 
@@ -110,7 +126,7 @@
         >
 
         <small>
-            Hanya file PDF. Maksimal 100 MB. Kosongkan saat edit jika tidak ingin mengganti file.
+            Hanya file PDF. Maksimal 100 MB.
         </small>
 
         @error('file')

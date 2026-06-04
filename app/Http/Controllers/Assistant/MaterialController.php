@@ -18,21 +18,25 @@ class MaterialController extends Controller
 {
     use HandlesLmsNotifications, ResolvesClassAccess;
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $selectedClass = $this->selectedAssistantClassFromRequest($request);
+
         $materials = Material::query()
             ->with(['kelas.course', 'creator'])
             ->whereIn('class_id', $this->assistantClassesQuery()->pluck('id'))
+            ->when($selectedClass, fn ($query) => $query->where('class_id', $selectedClass->id))
             ->latest()
             ->paginate(10);
 
-        return view('assistant.materials.index', compact('materials'));
+        return view('assistant.materials.index', compact('materials', 'selectedClass'));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('assistant.materials.create', [
-            'classes' => $this->assistantClassesQuery()->with('course')->get(),
+            'classes' => $this->assistantClassesQuery()->with(['course.studySemester'])->get(),
+            'selectedClass' => $this->selectedAssistantClassFromRequest($request),
         ]);
     }
 
@@ -95,7 +99,7 @@ class MaterialController extends Controller
         }
 
         return redirect()
-            ->route('assistant.materi.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', $this->materialSuccessMessage('Materi berhasil ditambahkan.', $filePath, $extractedText, $validated['type']));
     }
 
@@ -112,9 +116,12 @@ class MaterialController extends Controller
     {
         $this->assistantClassOrFail((int) $material->class_id);
 
+        $material->loadMissing(['kelas.course.studySemester']);
+
         return view('assistant.materials.edit', [
             'material' => $material,
-            'classes' => $this->assistantClassesQuery()->with('course')->get(),
+            'classes' => $this->assistantClassesQuery()->with(['course.studySemester'])->get(),
+            'selectedClass' => $material->kelas,
         ]);
     }
 
@@ -198,13 +205,13 @@ class MaterialController extends Controller
         ]);
 
         return redirect()
-            ->route('assistant.materi.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', $this->materialSuccessMessage('Materi berhasil diperbarui.', $filePath, $extractedText, $validated['type']));
     }
 
     public function destroy(Material $material): RedirectResponse
     {
-        $this->assistantClassOrFail((int) $material->class_id);
+        $class = $this->assistantClassOrFail((int) $material->class_id);
 
         if ($material->file_path && ! str_starts_with($material->file_path, 'http')) {
             Storage::disk('public')->delete($material->file_path);
@@ -213,8 +220,19 @@ class MaterialController extends Controller
         $material->delete();
 
         return redirect()
-            ->route('assistant.materi.index')
+            ->route('assistant.courses.show', $class)
             ->with('success', 'Materi berhasil dihapus.');
+    }
+
+    private function selectedAssistantClassFromRequest(Request $request)
+    {
+        if (! $request->filled('class_id')) {
+            return null;
+        }
+
+        return $this->assistantClassesQuery()
+            ->with(['course.studySemester'])
+            ->find($request->integer('class_id'));
     }
 
     private function materialShouldAppearNow(Material $material): bool
