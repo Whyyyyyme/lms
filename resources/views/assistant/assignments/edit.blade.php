@@ -13,10 +13,21 @@
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Edit Tugas',
-    'description' => 'Perbarui data tugas, deadline, file, dan waktu publikasi tugas.'
+    'description' => 'Perbarui data tugas, deadline, file yang bisa dibaca AI, dan waktu publikasi tugas.'
 ])
 
-<form action="{{ route('assistant.tugas.update', $assignment) }}" method="POST" enctype="multipart/form-data" class="form-card">
+<div class="alert" style="margin-bottom:16px;">
+    <strong>Catatan file tugas:</strong>
+    Format yang didukung adalah PDF, DOCX, TXT, MD, atau CSV.
+    Jika mengganti file, hindari upload PPT, PPTX, ZIP, RAR, atau file scan/gambar jika ingin isi tugas bisa dibaca oleh AI.
+</div>
+
+<form
+    action="{{ route('assistant.tugas.update', $assignment) }}"
+    method="POST"
+    enctype="multipart/form-data"
+    class="form-card"
+>
     @csrf
     @method('PUT')
 
