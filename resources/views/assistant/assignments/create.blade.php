@@ -6,7 +6,7 @@
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Buat Tugas',
-    'description' => 'Buat tugas baru, atur waktu publikasi, dan tentukan deadline pengumpulan.'
+    'description' => 'Buat tugas baru, unggah file yang bisa dibaca AI, atur waktu publikasi, dan tentukan deadline pengumpulan.'
 ])
 
 @if(($classes ?? collect())->isEmpty())
@@ -15,7 +15,18 @@
     </div>
 @endif
 
-<form action="{{ route('assistant.tugas.store') }}" method="POST" enctype="multipart/form-data" class="form-card">
+<div class="alert" style="margin-bottom:16px;">
+    <strong>Catatan file tugas:</strong>
+    Format yang didukung adalah PDF, DOCX, TXT, MD, atau CSV.
+    Hindari upload PPT, PPTX, ZIP, RAR, atau file scan/gambar jika ingin isi tugas bisa dibaca oleh AI.
+</div>
+
+<form
+    action="{{ route('assistant.tugas.store') }}"
+    method="POST"
+    enctype="multipart/form-data"
+    class="form-card"
+>
     @csrf
 
     @include('assistant.assignments._form')
@@ -34,7 +45,8 @@
         >
 
         <p class="form-help">
-            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
+            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa.
+            Jika diisi, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
         </p>
 
         @error('published_at')

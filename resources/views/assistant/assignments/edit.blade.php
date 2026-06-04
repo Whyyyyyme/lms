@@ -6,10 +6,21 @@
 @include('partials.page-header', [
     'eyebrow' => 'Asisten',
     'title' => 'Edit Tugas',
-    'description' => 'Perbarui data tugas, deadline, file, dan waktu publikasi tugas.'
+    'description' => 'Perbarui data tugas, deadline, file yang bisa dibaca AI, dan waktu publikasi tugas.'
 ])
 
-<form action="{{ route('assistant.tugas.update', $assignment) }}" method="POST" enctype="multipart/form-data" class="form-card">
+<div class="alert" style="margin-bottom:16px;">
+    <strong>Catatan file tugas:</strong>
+    Format yang didukung adalah PDF, DOCX, TXT, MD, atau CSV.
+    Jika mengganti file, hindari upload PPT, PPTX, ZIP, RAR, atau file scan/gambar jika ingin isi tugas bisa dibaca oleh AI.
+</div>
+
+<form
+    action="{{ route('assistant.tugas.update', $assignment) }}"
+    method="POST"
+    enctype="multipart/form-data"
+    class="form-card"
+>
     @csrf
     @method('PUT')
 
@@ -24,24 +35,29 @@
             type="datetime-local"
             id="published_at"
             name="published_at"
-            value="{{ old('published_at', $assignment->published_at ? $assignment->published_at->format('Y-m-d\TH:i') : '') }}"
+            value="{{ old('published_at', $assignment->published_at ? $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('Y-m-d\TH:i') : '') }}"
             class="form-control @error('published_at') is-invalid @enderror"
         >
 
         <p class="form-help">
-            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa. Jika diisi dengan waktu masa depan, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
+            Kosongkan jika tugas ingin langsung ditampilkan ke mahasiswa.
+            Jika diisi dengan waktu masa depan, tugas baru akan muncul di halaman mahasiswa sesuai waktu publikasi ini.
         </p>
 
         @if($assignment->published_at)
             @if($assignment->published_at->isFuture())
                 <p class="mt-2 text-sm text-yellow-700">
                     Status saat ini: tugas masih terjadwal dan akan tampil pada
-                    <strong>{{ $assignment->published_at->format('d/m/Y H:i') }}</strong>.
+                    <strong>
+                        {{ $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y H:i') }} WIB
+                    </strong>.
                 </p>
             @else
                 <p class="mt-2 text-sm text-green-700">
                     Status saat ini: tugas sudah dipublikasikan sejak
-                    <strong>{{ $assignment->published_at->format('d/m/Y H:i') }}</strong>.
+                    <strong>
+                        {{ $assignment->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y H:i') }} WIB
+                    </strong>.
                 </p>
             @endif
         @else

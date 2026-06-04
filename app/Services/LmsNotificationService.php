@@ -8,14 +8,22 @@ use App\Models\LmsNotification;
 use App\Models\User;
 use App\Notifications\LmsBaseNotification;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Throwable;
 
 class LmsNotificationService
 {
     /**
      * Kirim notifikasi berbasis Notification class ke satu user atau banyak user.
-     * Data akan dibuat lewat queue agar request controller tetap ringan.
+     *
+     * Alur:
+     * 1. Tetap membuat notifikasi in-app LMS lewat SendLmsNotificationJob.
+     * 2. Jika notification punya email/toMail(), kirim juga email lewat Laravel Notification.
+     *
+     * Catatan:
+     * Fitur email verifikasi akun mahasiswa tidak disentuh di sini.
      */
     public function send(User|Collection|EloquentCollection $users, LmsBaseNotification $notification): void
     {
@@ -29,11 +37,16 @@ class LmsNotificationService
                 message: $payload['message'],
                 data: $payload['data'] ?? [],
             )->onQueue('notifications');
+
+            $this->sendMailNotificationIfSupported($user, $notification);
         });
     }
 
     /**
-     * Kirim notifikasi mentah. Cocok untuk controller lama yang sudah memakai trait notifyUsers().
+     * Kirim notifikasi mentah.
+     *
+     * Ini tetap hanya untuk in-app notification.
+     * Tidak otomatis mengirim email karena tidak ada Notification class/toMail().
      */
     public function sendRaw(User|Collection|EloquentCollection $users, string $type, string $title, string $message, array $data = []): void
     {
@@ -44,7 +57,8 @@ class LmsNotificationService
     }
 
     /**
-     * Simpan notifikasi sekarang juga. Dipakai dari SendLmsNotificationJob.
+     * Simpan notifikasi sekarang juga.
+     * Dipakai dari SendLmsNotificationJob.
      */
     public function storeNow(User $user, string $type, string $title, string $message, array $data = []): LmsNotification
     {
@@ -66,7 +80,10 @@ class LmsNotificationService
     }
 
     /**
-     * Cegah notifikasi deadline dobel jika scheduler/queue sempat dijalankan ulang pada hari yang sama.
+     * Cegah notifikasi deadline dobel jika scheduler/queue dijalankan ulang.
+     *
+     * Untuk mode testing menit, tetap dicek per hari + assignment + amount_before + unit.
+     * Jadi reminder 3 menit dan 2 menit tidak saling menghalangi.
      */
     public function alreadySentToday(User $user, string $type, array $dataMatch = []): bool
     {
@@ -76,10 +93,35 @@ class LmsNotificationService
             ->whereDate('created_at', today());
 
         foreach ($dataMatch as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
             $query->where("data->{$key}", $value);
         }
 
         return $query->exists();
+    }
+
+    private function sendMailNotificationIfSupported(User $user, LmsBaseNotification $notification): void
+    {
+        if (! $notification instanceof Notification) {
+            return;
+        }
+
+        if (! method_exists($notification, 'toMail')) {
+            return;
+        }
+
+        if (blank($user->email)) {
+            return;
+        }
+
+        try {
+            $user->notify($notification);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function normalizeUsers(User|Collection|EloquentCollection $users): Collection
