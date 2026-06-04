@@ -52,16 +52,22 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
+            Route::patch('/users/{user}/verify', [UserController::class, 'verify'])->name('users.verify');
+
             Route::resource('users', UserController::class);
+
             Route::resource('semester', StudySemesterController::class)->parameters([
                 'semester' => 'studySemester',
             ]);
+
             Route::resource('tahun-akademik', AcademicYearController::class)->parameters([
                 'tahun-akademik' => 'academicYear',
             ]);
+
             Route::resource('matakuliah', CourseController::class)->parameters([
                 'matakuliah' => 'course',
             ]);
+
             Route::resource('kelas', AdminClassController::class)->parameters([
                 'kelas' => 'praktikumClass',
             ]);
@@ -128,7 +134,6 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/dashboard', [MahasiswaDashboardController::class, 'index'])->name('dashboard');
 
             Route::get('/materi', [StudentMaterialController::class, 'index'])->name('materials.index');
-
             Route::get('/materi/mata-kuliah/{course}', [StudentMaterialController::class, 'course'])->name('materials.course');
 
             Route::get('/materi/{material}', [StudentMaterialController::class, 'show'])->name('materials.show');
@@ -141,6 +146,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('/submissions/{submission}', [StudentAssignmentController::class, 'updateSubmission'])->name('submissions.update');
 
             Route::get('/nilai', [StudentGradeController::class, 'index'])->name('grades.index');
+
             Route::get('/absensi', [StudentAttendanceController::class, 'index'])->name('attendances.index');
             Route::post('/absensi/{attendance}/check-in', [StudentAttendanceController::class, 'checkIn'])->name('attendances.check-in');
 

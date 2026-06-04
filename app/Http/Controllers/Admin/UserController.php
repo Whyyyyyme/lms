@@ -9,10 +9,13 @@ use App\Notifications\StudentAccountActivated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Spatie\Permission\Models\Role;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -23,6 +26,7 @@ class UserController extends Controller
     public function index(Request $request): View
     {
         $role = $request->input('role');
+        $status = $request->input('status');
 
         $users = User::query()
             ->with(['studySemester', 'roles'])
@@ -43,6 +47,9 @@ class UserController extends Controller
                         });
                 });
             })
+            ->when(in_array($status, ['active', 'pending'], true), function ($query) use ($status) {
+                $query->where('is_active', $status === 'active');
+            })
             ->when($request->filled('study_semester_id'), function ($query) use ($request) {
                 $query->where('study_semester_id', $request->integer('study_semester_id'));
             })
@@ -50,7 +57,7 @@ class UserController extends Controller
                 $query->where('student_group', strtoupper((string) $request->input('student_group')));
             })
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = $request->string('search');
+                $search = trim((string) $request->input('search'));
 
                 $query->where(function ($query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
@@ -117,31 +124,47 @@ class UserController extends Controller
             'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
         ]);
 
-        $data = Arr::except($validated, ['role', 'password']);
-        $data['password'] = Hash::make($validated['password']);
-        $data['is_active'] = $request->boolean('is_active');
-        $data['email_verified_at'] = now();
+        $shouldNotifyStudent = false;
 
-        if ($validated['role'] !== 'mahasiswa') {
-            $data['study_semester_id'] = null;
-            $data['student_group'] = null;
-        } else {
-            $data['student_group'] = strtoupper((string) $validated['student_group']);
+        $user = DB::transaction(function () use ($request, $validated, &$shouldNotifyStudent) {
+            $role = $validated['role'];
+
+            Role::findOrCreate($role, 'web');
+
+            $data = Arr::except($validated, ['role', 'password']);
+            $data['password'] = Hash::make($validated['password']);
+            $data['is_active'] = $request->boolean('is_active');
+            $data['email_verified_at'] = now();
+
+            if ($role !== 'mahasiswa') {
+                $data['study_semester_id'] = null;
+                $data['student_group'] = null;
+            } else {
+                $data['student_group'] = strtoupper((string) $validated['student_group']);
+            }
+
+            if (Schema::hasColumn('users', 'role')) {
+                $data['role'] = $role;
+            }
+
+            $user = User::create($data);
+
+            $user->syncRoles([$role]);
+
+            $this->syncStudentSemester(
+                $user,
+                $role,
+                $validated['study_semester_id'] ?? null
+            );
+
+            $shouldNotifyStudent = $role === 'mahasiswa' && (bool) $user->is_active;
+
+            return $user;
+        });
+
+        if ($shouldNotifyStudent) {
+            $this->sendStudentActivatedNotification($user);
         }
-
-        if (Schema::hasColumn('users', 'role')) {
-            $data['role'] = $validated['role'];
-        }
-
-        $user = User::create($data);
-
-        $user->syncRoles([$validated['role']]);
-
-        $this->syncStudentSemester(
-            $user,
-            $validated['role'],
-            $validated['study_semester_id'] ?? null
-        );
 
         return redirect()
             ->route('admin.users.index')
@@ -179,8 +202,6 @@ class UserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         abort_if($user->hasRole('admin') || $user->role === 'admin', 403, 'Akun admin dikelola manual.');
-
-        $wasInactive = ! $user->is_active;
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -224,47 +245,101 @@ class UserController extends Controller
             'student_group.in' => 'Kelas/Rombel mahasiswa tidak valid.',
         ]);
 
-        $wasInactive = ! $user->is_active;
+        $shouldNotifyStudent = false;
 
-        $data = Arr::except($validated, ['role', 'password']);
-        $data['is_active'] = $request->boolean('is_active');
+        DB::transaction(function () use ($request, $validated, $user, &$shouldNotifyStudent) {
+            $role = $validated['role'];
+            $wasInactive = ! (bool) $user->is_active;
 
-        if (! empty($validated['password'])) {
-            $data['password'] = Hash::make($validated['password']);
-        }
+            Role::findOrCreate($role, 'web');
 
-        if ($validated['role'] !== 'mahasiswa') {
-            $data['study_semester_id'] = null;
-            $data['student_group'] = null;
-        } else {
-            $data['student_group'] = strtoupper((string) $validated['student_group']);
-        }
+            $data = Arr::except($validated, ['role', 'password']);
+            $data['is_active'] = $request->boolean('is_active');
 
-        if (Schema::hasColumn('users', 'role')) {
-            $data['role'] = $validated['role'];
-        }
-
-        $user->update($data);
-
-        $user->syncRoles([$validated['role']]);
-
-        $this->syncStudentSemester(
-            $user,
-            $validated['role'],
-            $validated['study_semester_id'] ?? null
-        );
-
-        if ($validated['role'] === 'mahasiswa' && $wasInactive && $user->is_active) {
-            try {
-                $user->notify(new AccountActivated());
-            } catch (\Throwable $exception) {
-                report($exception);
+            if (! empty($validated['password'])) {
+                $data['password'] = Hash::make($validated['password']);
             }
+
+            if ($role !== 'mahasiswa') {
+                $data['study_semester_id'] = null;
+                $data['student_group'] = null;
+            } else {
+                $data['student_group'] = strtoupper((string) $validated['student_group']);
+            }
+
+            if (Schema::hasColumn('users', 'role')) {
+                $data['role'] = $role;
+            }
+
+            $user->update($data);
+
+            $user->syncRoles([$role]);
+
+            $this->syncStudentSemester(
+                $user,
+                $role,
+                $validated['study_semester_id'] ?? null
+            );
+
+            $shouldNotifyStudent = $role === 'mahasiswa'
+                && $wasInactive
+                && (bool) $user->is_active;
+        });
+
+        if ($shouldNotifyStudent) {
+            $this->sendStudentActivatedNotification($user->fresh());
         }
 
         return redirect()
             ->route('admin.users.index')
             ->with('success', 'User berhasil diperbarui.');
+    }
+
+    public function verify(User $user): RedirectResponse
+    {
+        abort_if($user->hasRole('admin') || $user->role === 'admin', 403, 'Akun admin dikelola manual.');
+
+        $isStudent = $user->role === 'mahasiswa' || $user->hasRole('mahasiswa');
+
+        if (! $isStudent) {
+            return redirect()
+                ->route('admin.users.index')
+                ->with('error', 'Hanya akun mahasiswa yang bisa diverifikasi.');
+        }
+
+        if ((bool) $user->is_active) {
+            return redirect()
+                ->route('admin.users.index')
+                ->with('info', 'Akun mahasiswa ini sudah aktif.');
+        }
+
+        DB::transaction(function () use ($user) {
+            Role::findOrCreate('mahasiswa', 'web');
+
+            $data = [
+                'is_active' => true,
+            ];
+
+            if (is_null($user->email_verified_at)) {
+                $data['email_verified_at'] = now();
+            }
+
+            if (Schema::hasColumn('users', 'role')) {
+                $data['role'] = 'mahasiswa';
+            }
+
+            $user->update($data);
+
+            if (! $user->hasRole('mahasiswa')) {
+                $user->syncRoles(['mahasiswa']);
+            }
+        });
+
+        $this->sendStudentActivatedNotification($user->fresh());
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', 'Akun mahasiswa berhasil diverifikasi dan email aktivasi telah dikirim.');
     }
 
     public function destroy(User $user): RedirectResponse
@@ -303,5 +378,18 @@ class UserController extends Controller
 
         // Mahasiswa tidak lagi dikunci hanya ke satu kelas utama.
         // Akses materi/tugas/absensi dihitung dari study_semester_id + student_group.
+    }
+
+    private function sendStudentActivatedNotification(?User $user): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        try {
+            $user->notify(new StudentAccountActivated());
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 }

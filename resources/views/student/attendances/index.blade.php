@@ -6,7 +6,7 @@
 @include('partials.page-header', [
     'eyebrow' => 'Mahasiswa',
     'title' => 'Absensi Saya',
-    'description' => 'Lihat sesi absensi praktikum dan lakukan check-in saat absensi dibuka.'
+    'description' => 'Lihat sesi absensi praktikum dan lakukan check-in saat absensi sedang dibuka.'
 ])
 
 @if (session('success'))
@@ -32,8 +32,7 @@
         <thead>
             <tr>
                 <th>Mata Kuliah / Kelas</th>
-                <th>Dibuka</th>
-                <th>Ditutup</th>
+                <th>Waktu Absensi</th>
                 <th>Status Sesi</th>
                 <th>Status Kamu</th>
                 <th>Check-in</th>
@@ -44,6 +43,8 @@
         <tbody>
             @forelse($attendances as $attendance)
                 @php
+                    $timezone = config('app.timezone', 'Asia/Jakarta');
+
                     $record = $attendance->records->first();
                     $studentStatus = $record?->status ?? 'alpha';
 
@@ -53,25 +54,51 @@
                         default => 'Alpha',
                     };
 
-                    $now = now();
+                    $studentStatusClass = match ($studentStatus) {
+                        'hadir' => 'badge-green',
+                        'izin' => 'badge-blue',
+                        default => 'badge-red',
+                    };
 
-                    $isScheduled = $attendance->opened_at && $attendance->opened_at->greaterThan($now);
-                    $isClosed = $attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo($now);
+                    $openedAt = $attendance->opened_at
+                        ? $attendance->opened_at->timezone($timezone)->format('d M Y H:i') . ' WIB'
+                        : '-';
 
-                    $sessionStatus = 'Ditutup';
+                    $closedAt = $attendance->closed_at
+                        ? $attendance->closed_at->timezone($timezone)->format('d M Y H:i') . ' WIB'
+                        : '-';
 
-                    if ($attendance->is_open) {
-                        $sessionStatus = 'Dibuka';
-                    } elseif ($isScheduled) {
-                        $sessionStatus = 'Terjadwal';
-                    } elseif ($isClosed) {
-                        $sessionStatus = 'Ditutup';
-                    }
+                    $checkedAt = $record?->checked_at
+                        ? $record->checked_at->timezone($timezone)->format('d M Y H:i') . ' WIB'
+                        : '-';
 
-                    $canCheckIn = $attendance->is_open
-                        && $studentStatus === 'alpha'
-                        && (! $attendance->opened_at || $attendance->opened_at->lessThanOrEqualTo($now))
-                        && (! $attendance->closed_at || $attendance->closed_at->greaterThan($now));
+                    $sessionStatus = method_exists($attendance, 'statusLabel')
+                        ? $attendance->statusLabel()
+                        : ($attendance->is_open ? 'Sedang Dibuka' : 'Ditutup');
+
+                    $sessionStatusClass = method_exists($attendance, 'statusBadgeClass')
+                        ? $attendance->statusBadgeClass()
+                        : ($attendance->is_open ? 'badge-green' : 'badge-red');
+
+                    $isScheduled = method_exists($attendance, 'isWaitingToOpen')
+                        ? $attendance->isWaitingToOpen()
+                        : ($attendance->opened_at && $attendance->opened_at->greaterThan(now()));
+
+                    $isWithinOpenWindow = method_exists($attendance, 'isWithinOpenWindow')
+                        ? $attendance->isWithinOpenWindow()
+                        : (
+                            $attendance->opened_at
+                            && $attendance->closed_at
+                            && $attendance->opened_at->lessThanOrEqualTo(now())
+                            && $attendance->closed_at->greaterThan(now())
+                        );
+
+                    $hasEnded = method_exists($attendance, 'hasEnded')
+                        ? $attendance->hasEnded()
+                        : ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now()));
+
+                    $canCheckIn = $isWithinOpenWindow
+                        && $studentStatus === 'alpha';
                 @endphp
 
                 <tr>
@@ -79,6 +106,11 @@
                         <strong>
                             {{ $attendance->kelas?->course?->name ?? 'Mata kuliah tidak ditemukan' }}
                         </strong>
+
+                        @if($attendance->kelas?->course?->code)
+                            <br>
+                            <small>{{ $attendance->kelas->course->code }}</small>
+                        @endif
 
                         <div style="font-size:12px;color:#64748b;margin-top:4px;">
                             {{ $attendance->kelas?->name ?? 'Kelas tidak ditemukan' }}
@@ -90,36 +122,29 @@
                     </td>
 
                     <td>
-                        {{ $attendance->opened_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}
-                        @if($attendance->opened_at)
-                            WIB
-                        @endif
+                        <strong>Dibuka:</strong>
+                        {{ $openedAt }}
+
+                        <br>
+
+                        <strong>Ditutup:</strong>
+                        {{ $closedAt }}
                     </td>
 
                     <td>
-                        {{ $attendance->closed_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}
-                        @if($attendance->closed_at)
-                            WIB
-                        @endif
-                    </td>
-
-                    <td>
-                        <span class="badge {{ $attendance->is_open ? 'badge-green' : '' }}">
+                        <span class="badge {{ $sessionStatusClass }}">
                             {{ $sessionStatus }}
                         </span>
                     </td>
 
                     <td>
-                        <span class="badge {{ $studentStatus === 'hadir' ? 'badge-green' : '' }}">
+                        <span class="badge {{ $studentStatusClass }}">
                             {{ $studentStatusLabel }}
                         </span>
                     </td>
 
                     <td>
-                        {{ $record?->checked_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}
-                        @if($record?->checked_at)
-                            WIB
-                        @endif
+                        {{ $checkedAt }}
                     </td>
 
                     <td>
@@ -132,19 +157,31 @@
                                 </button>
                             </form>
                         @elseif($studentStatus === 'hadir')
-                            <span class="badge badge-green">Sudah check-in</span>
+                            <span class="badge badge-green">
+                                Sudah check-in
+                            </span>
                         @elseif($studentStatus === 'izin')
-                            <span class="badge">Izin</span>
+                            <span class="badge badge-blue">
+                                Izin
+                            </span>
                         @elseif($isScheduled)
-                            <span class="badge">Belum dibuka</span>
+                            <span class="badge badge-blue">
+                                Belum dibuka
+                            </span>
+                        @elseif($hasEnded)
+                            <span class="badge badge-red">
+                                Sudah ditutup
+                            </span>
                         @else
-                            <span class="badge">Tidak tersedia</span>
+                            <span class="badge">
+                                Tidak tersedia
+                            </span>
                         @endif
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7">
+                    <td colspan="6">
                         Belum ada sesi absensi untuk kelas praktikum kamu.
                     </td>
                 </tr>

@@ -4,11 +4,8 @@ namespace App\Livewire;
 
 use App\Models\Attendance;
 use App\Models\AttendanceRecord;
-use App\Models\LmsNotification;
 use App\Models\PraktikumClass;
-use App\Models\User;
 use App\Services\StudentAccessService;
-use Illuminate\Support\Str;
 use Livewire\Component;
 
 class AbsensiLive extends Component
@@ -24,83 +21,104 @@ class AbsensiLive extends Component
         $this->classId = $classId;
     }
 
+    /**
+     * Alur lama: asisten klik buka lalu sistem langsung membuat absensi.
+     * Alur baru: asisten wajib menentukan opened_at dan closed_at dari halaman create.
+     */
     public function openSession(int $classId): void
     {
         $class = PraktikumClass::query()
-            ->with(['course.studySemester', 'students.studySemester'])
             ->whereKey($classId)
             ->firstOrFail();
 
         abort_unless($this->canManageClass($class), 403);
 
-        $hasOpenSession = Attendance::query()
-            ->where('class_id', $class->id)
-            ->where('is_open', true)
-            ->exists();
+        $this->flashMessage = 'Untuk membuat absensi, gunakan tombol Buat Sesi Absensi agar tanggal/jam dibuka dan ditutup bisa ditentukan.';
 
-        if ($hasOpenSession) {
-            $this->flashMessage = 'Masih ada sesi absensi yang terbuka untuk kelas ini.';
-            return;
-        }
-
-        $attendance = Attendance::create([
-            'class_id' => $class->id,
-            'session_date' => now()->toDateString(),
-            'opened_by' => auth()->id(),
-            'opened_at' => now(),
-            'is_open' => true,
-        ]);
-
-        foreach (app(StudentAccessService::class)->studentsForClass($class) as $student) {
-            AttendanceRecord::firstOrCreate(
-                [
-                    'attendance_id' => $attendance->id,
-                    'student_id' => $student->id,
-                ],
-                [
-                    'status' => 'alpha',
-                    'checked_at' => null,
-                ]
-            );
-
-            $this->createNotification(
-                $student,
-                'Sesi absensi dibuka',
-                'Absensi untuk kelas ' . $class->name . ' sudah dibuka. Silakan check-in sekarang.',
-                [
-                    'attendance_id' => $attendance->id,
-                    'class_id' => $class->id,
-                    'url' => route('student.attendances.index'),
-                ]
-            );
-        }
-
-        $this->selectedAttendanceId = $attendance->id;
-        $this->flashMessage = 'Sesi absensi berhasil dibuka.';
-        $this->dispatch('attendance-opened');
+        $this->redirectRoute('assistant.attendances.create');
     }
 
     public function closeSession(int $attendanceId): void
     {
-        $attendance = Attendance::query()->with('kelas')->findOrFail($attendanceId);
+        $attendance = Attendance::query()
+            ->with('kelas')
+            ->findOrFail($attendanceId);
 
         abort_unless($this->canManageClass($attendance->kelas), 403);
+
+        $this->refreshAttendanceStatus($attendance);
+        $attendance->refresh();
+
+        if ($attendance->opened_at && $attendance->opened_at->greaterThan(now())) {
+            $this->flashMessage = 'Sesi absensi belum dimulai. Jika ingin membatalkan, hapus sesi absensi dari halaman kelola absensi.';
+            return;
+        }
+
+        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now())) {
+            $attendance->update([
+                'is_open' => false,
+            ]);
+
+            $this->flashMessage = 'Sesi absensi sudah ditutup.';
+            return;
+        }
 
         $attendance->update([
             'is_open' => false,
             'closed_at' => now(),
         ]);
 
-        $this->flashMessage = 'Sesi absensi berhasil ditutup.';
+        $this->flashMessage = 'Sesi absensi berhasil ditutup lebih awal.';
         $this->dispatch('attendance-closed');
     }
 
     public function checkIn(int $attendanceId): void
     {
-        $attendance = Attendance::query()->findOrFail($attendanceId);
+        $attendance = Attendance::query()
+            ->findOrFail($attendanceId);
 
-        abort_unless($attendance->is_open, 422, 'Sesi absensi belum dibuka atau sudah ditutup.');
-        abort_unless(in_array((int) $attendance->class_id, $this->studentClassIds(), true), 403);
+        abort_unless(
+            in_array((int) $attendance->class_id, $this->studentClassIds(), true),
+            403
+        );
+
+        $this->refreshAttendanceStatus($attendance);
+        $attendance->refresh();
+
+        if (! $attendance->opened_at || ! $attendance->closed_at) {
+            $this->flashMessage = 'Sesi absensi belum memiliki jadwal yang lengkap.';
+            return;
+        }
+
+        if ($attendance->opened_at->greaterThan(now())) {
+            $this->flashMessage = 'Sesi absensi belum dibuka.';
+            return;
+        }
+
+        if ($attendance->closed_at->lessThanOrEqualTo(now())) {
+            $this->flashMessage = 'Sesi absensi sudah ditutup.';
+            return;
+        }
+
+        if (! $attendance->isWithinOpenWindow()) {
+            $this->flashMessage = 'Sesi absensi belum dibuka atau sudah ditutup.';
+            return;
+        }
+
+        $record = AttendanceRecord::query()
+            ->where('attendance_id', $attendance->id)
+            ->where('student_id', auth()->id())
+            ->first();
+
+        if ($record?->status === 'hadir') {
+            $this->flashMessage = 'Kamu sudah melakukan check-in absensi.';
+            return;
+        }
+
+        if ($record?->status === 'izin') {
+            $this->flashMessage = 'Status kamu sudah ditandai izin oleh asisten. Hubungi asisten jika perlu koreksi.';
+            return;
+        }
 
         AttendanceRecord::updateOrCreate(
             [
@@ -121,7 +139,9 @@ class AbsensiLive extends Component
     {
         abort_unless(in_array($status, ['hadir', 'izin', 'alpha'], true), 422);
 
-        $attendance = Attendance::query()->with('kelas')->findOrFail($attendanceId);
+        $attendance = Attendance::query()
+            ->with('kelas')
+            ->findOrFail($attendanceId);
 
         abort_unless($this->canManageClass($attendance->kelas), 403);
 
@@ -132,7 +152,7 @@ class AbsensiLive extends Component
             ],
             [
                 'status' => $status,
-                'checked_at' => $status === 'hadir' ? now() : null,
+                'checked_at' => $status === 'alpha' ? null : now(),
             ]
         );
 
@@ -142,12 +162,17 @@ class AbsensiLive extends Component
 
     public function selectAttendance(int $attendanceId): void
     {
-        $attendance = Attendance::query()->with('kelas')->findOrFail($attendanceId);
+        $attendance = Attendance::query()
+            ->with('kelas')
+            ->findOrFail($attendanceId);
 
         if (auth()->user()->hasRole('asisten')) {
             abort_unless($this->canManageClass($attendance->kelas), 403);
         } else {
-            abort_unless(in_array((int) $attendance->class_id, $this->studentClassIds(), true), 403);
+            abort_unless(
+                in_array((int) $attendance->class_id, $this->studentClassIds(), true),
+                403
+            );
         }
 
         $this->selectedAttendanceId = $attendance->id;
@@ -165,13 +190,17 @@ class AbsensiLive extends Component
 
     private function studentClassIds(): array
     {
-        $ids = collect(app(StudentAccessService::class)->classIdsForStudent(auth()->user()));
+        $ids = collect(app(StudentAccessService::class)->classIdsForStudent(auth()->user()))
+            ->map(fn ($id) => (int) $id);
 
         if ($this->classId) {
             $ids = $ids->filter(fn ($id) => (int) $id === (int) $this->classId);
         }
 
-        return $ids->unique()->values()->all();
+        return $ids
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function canManageClass(?PraktikumClass $class): bool
@@ -181,18 +210,35 @@ class AbsensiLive extends Component
             && (int) $class->assistant_id === (int) auth()->id();
     }
 
-    private function createNotification(User $user, string $title, string $message, array $data = []): void
+    private function refreshAttendanceStatus(Attendance $attendance): bool
     {
-        LmsNotification::create([
-            'id' => (string) Str::uuid(),
-            'type' => 'attendance.opened',
-            'notifiable_type' => User::class,
-            'notifiable_id' => $user->id,
-            'user_id' => $user->id,
-            'title' => $title,
-            'message' => $message,
-            'data' => $data,
+        if (method_exists($attendance, 'syncOpenStatus')) {
+            return $attendance->syncOpenStatus();
+        }
+
+        $now = now();
+
+        $shouldBeOpen = $attendance->opened_at
+            && $attendance->closed_at
+            && $attendance->opened_at->lessThanOrEqualTo($now)
+            && $attendance->closed_at->greaterThan($now);
+
+        if ((bool) $attendance->is_open === (bool) $shouldBeOpen) {
+            return false;
+        }
+
+        $attendance->update([
+            'is_open' => $shouldBeOpen,
         ]);
+
+        return true;
+    }
+
+    private function refreshAttendanceCollection($attendances): void
+    {
+        $attendances->each(function (Attendance $attendance): void {
+            $this->refreshAttendanceStatus($attendance);
+        });
     }
 
     public function render()
@@ -214,14 +260,24 @@ class AbsensiLive extends Component
                     'records as alpha_count' => fn ($query) => $query->where('status', 'alpha'),
                 ])
                 ->whereIn('class_id', $classes->pluck('id'))
-                ->latest('session_date')
                 ->latest('opened_at')
+                ->latest('session_date')
                 ->limit(10)
                 ->get();
 
+            $this->refreshAttendanceCollection($attendances);
+
             $selectedAttendance = $this->selectedAttendanceId
-                ? Attendance::query()->with(['kelas.course', 'records.student'])->find($this->selectedAttendanceId)
+                ? Attendance::query()
+                    ->with(['kelas.course', 'records.student'])
+                    ->find($this->selectedAttendanceId)
                 : $attendances->first();
+
+            if ($selectedAttendance) {
+                $this->refreshAttendanceStatus($selectedAttendance);
+                $selectedAttendance->refresh();
+                $selectedAttendance->loadMissing(['kelas.course', 'records.student']);
+            }
 
             return view('livewire.absensi-live', [
                 'mode' => 'asisten',
@@ -232,20 +288,35 @@ class AbsensiLive extends Component
             ]);
         }
 
+        $studentClassIds = $this->studentClassIds();
+
         $activeAttendances = Attendance::query()
-            ->with(['kelas.course', 'records' => fn ($query) => $query->where('student_id', auth()->id())])
-            ->whereIn('class_id', $this->studentClassIds())
+            ->with([
+                'kelas.course',
+                'records' => fn ($query) => $query->where('student_id', auth()->id()),
+            ])
+            ->whereIn('class_id', $studentClassIds)
+            ->whereNotNull('opened_at')
+            ->whereNotNull('closed_at')
+            ->where('opened_at', '<=', now())
+            ->where('closed_at', '>', now())
             ->where('is_open', true)
             ->latest('opened_at')
             ->get();
 
         $attendances = Attendance::query()
-            ->with(['kelas.course', 'records' => fn ($query) => $query->where('student_id', auth()->id())])
-            ->whereIn('class_id', $this->studentClassIds())
-            ->latest('session_date')
+            ->with([
+                'kelas.course',
+                'records' => fn ($query) => $query->where('student_id', auth()->id()),
+            ])
+            ->whereIn('class_id', $studentClassIds)
             ->latest('opened_at')
+            ->latest('session_date')
             ->limit(10)
             ->get();
+
+        $this->refreshAttendanceCollection($activeAttendances);
+        $this->refreshAttendanceCollection($attendances);
 
         return view('livewire.absensi-live', [
             'mode' => 'mahasiswa',

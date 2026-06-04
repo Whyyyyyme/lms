@@ -36,23 +36,31 @@ class AttendanceController extends Controller
 
     public function checkIn(Attendance $attendance): RedirectResponse
     {
+        $studentClassIds = collect($this->studentClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         abort_unless(
-            in_array((int) $attendance->class_id, $this->studentClassIds(), true),
+            in_array((int) $attendance->class_id, $studentClassIds, true),
             403
         );
 
         $this->refreshAttendanceStatus($attendance);
         $attendance->refresh();
 
-        if ($attendance->opened_at && $attendance->opened_at->greaterThan(now())) {
+        if (! $attendance->opened_at || ! $attendance->closed_at) {
+            return back()->with('error', 'Sesi absensi belum memiliki jadwal yang lengkap.');
+        }
+
+        if ($attendance->opened_at->greaterThan(now())) {
             return back()->with('error', 'Sesi absensi belum dibuka.');
         }
 
-        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now())) {
+        if ($attendance->closed_at->lessThanOrEqualTo(now())) {
             return back()->with('error', 'Sesi absensi sudah ditutup.');
         }
 
-        if (! $attendance->is_open) {
+        if (! $attendance->isWithinOpenWindow()) {
             return back()->with('error', 'Sesi absensi belum dibuka atau sudah ditutup.');
         }
 
@@ -83,30 +91,8 @@ class AttendanceController extends Controller
         return back()->with('success', 'Absensi berhasil. Status kamu tercatat hadir.');
     }
 
-    private function refreshAttendanceStatus(Attendance $attendance): void
+    private function refreshAttendanceStatus(Attendance $attendance): bool
     {
-        $now = now();
-
-        if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo($now)) {
-            if ($attendance->is_open) {
-                $attendance->update([
-                    'is_open' => false,
-                ]);
-            }
-
-            return;
-        }
-
-        if (
-            $attendance->opened_at
-            && $attendance->opened_at->lessThanOrEqualTo($now)
-            && (! $attendance->closed_at || $attendance->closed_at->greaterThan($now))
-        ) {
-            if (! $attendance->is_open) {
-                $attendance->update([
-                    'is_open' => true,
-                ]);
-            }
-        }
+        return $attendance->syncOpenStatus();
     }
 }

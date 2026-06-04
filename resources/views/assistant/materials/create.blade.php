@@ -4,7 +4,7 @@
 @include('partials.page-header', [
     'eyebrow' => 'Asisten Praktikum',
     'title' => 'Tambah Materi',
-    'description' => 'Unggah materi PDF atau tambahkan link video pembelajaran.',
+    'description' => 'Unggah materi PDF atau tambahkan link materi pembelajaran.',
 ])
 
 <form action="{{ route('assistant.materi.store') }}"
@@ -25,8 +25,21 @@
             <option value="">Pilih kelas</option>
 
             @foreach($classes as $class)
+                @php
+                    $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
+                    $courseCode = $class->course?->code;
+                    $semesterName = $class->course?->studySemester?->name;
+                @endphp
+
                 <option value="{{ $class->id }}" @selected(old('class_id') == $class->id)>
-                    {{ $class->course?->name }} - {{ $class->name }}
+                    {{ $courseName }}
+                    @if($courseCode)
+                        ({{ $courseCode }})
+                    @endif
+                    - {{ $class->name }}
+                    @if($semesterName)
+                        - {{ $semesterName }}
+                    @endif
                 </option>
             @endforeach
         </select>
@@ -78,8 +91,12 @@
                 class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required>
             <option value="pdf">PDF</option>
-            <option value="link">Link Video</option>
+            <option value="link">Link</option>
         </select>
+
+        <p class="mt-2 text-xs text-slate-500">
+            Pilih PDF jika ingin mengunggah file. Pilih Link jika materi berasal dari YouTube, Google Drive, website, atau sumber online lainnya.
+        </p>
 
         @error('type')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -94,10 +111,11 @@
         <input type="file"
                name="file"
                accept="application/pdf,.pdf"
+               :required="type === 'pdf'"
                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-bold file:text-indigo-700 hover:file:bg-indigo-100">
 
         <p class="mt-2 text-xs text-slate-500">
-            Hanya file PDF. Maksimal 100 MB.
+            Hanya file PDF. Maksimal 100 MB. Isi PDF akan dicoba dibaca oleh AI jika file dapat diproses.
         </p>
 
         @error('file')
@@ -107,17 +125,18 @@
 
     <div x-show="type === 'link'" x-cloak>
         <label class="mb-2 block text-sm font-bold text-slate-700">
-            Link Video
+            Link Materi
         </label>
 
         <input type="url"
                name="link"
                value="{{ old('link') }}"
+               :required="type === 'link'"
                class="w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-               placeholder="Contoh: https://www.youtube.com/watch?v=xxxx atau link Google Drive">
+               placeholder="Contoh: https://youtube.com/... atau https://drive.google.com/...">
 
         <p class="mt-2 text-xs text-slate-500">
-            Bisa menggunakan link YouTube, Google Drive, Vimeo, Loom, atau link video langsung.
+            Bisa menggunakan link YouTube, Google Drive, Vimeo, Loom, website, atau link materi online lainnya.
         </p>
 
         @error('link')

@@ -6,7 +6,7 @@
 @include('partials.page-header', [
     'eyebrow' => 'Admin',
     'title' => 'Kelola Asisten & Mahasiswa',
-    'description' => 'Tambah, edit, hapus, dan atur akun asisten praktikum serta mahasiswa. Akun admin utama dikelola manual.'
+    'description' => 'Tambah, edit, hapus, verifikasi, dan atur akun asisten praktikum serta mahasiswa. Akun admin utama dikelola manual.'
 ])
 
 <div class="toolbar">
@@ -39,16 +39,24 @@
             @endforeach
         </select>
 
-        <select class="form-control" style="width:170px;" name="status">
+        <select class="form-control" style="width:190px;" name="status">
             <option value="">Semua status</option>
-            <option value="1" @selected(request('status') === '1')>Aktif</option>
-            <option value="0" @selected(request('status') === '0')>Menunggu/Nonaktif</option>
+            <option value="active" @selected(request('status') === 'active')>
+                Aktif
+            </option>
+            <option value="pending" @selected(request('status') === 'pending')>
+                Pending / Nonaktif
+            </option>
         </select>
 
-        <button class="btn" type="submit">Filter</button>
+        <button class="btn" type="submit">
+            Filter
+        </button>
 
         @if(request()->hasAny(['search', 'role', 'study_semester_id', 'status']))
-            <a href="{{ route('admin.users.index') }}" class="btn">Reset</a>
+            <a href="{{ route('admin.users.index') }}" class="btn">
+                Reset
+            </a>
         @endif
     </form>
 
@@ -64,7 +72,7 @@
                 <th>Nama</th>
                 <th>Email</th>
                 <th>Jenis Akun</th>
-                <th>Semester</th>
+                <th>Semester / Rombel</th>
                 <th>Status</th>
                 <th>Aksi</th>
             </tr>
@@ -80,6 +88,9 @@
                         'mahasiswa' => 'Mahasiswa',
                         default => ucfirst($currentRole ?? '-'),
                     };
+
+                    $isStudent = $currentRole === 'mahasiswa';
+                    $isPendingStudent = $isStudent && ! $user->is_active;
                 @endphp
 
                 <tr>
@@ -89,7 +100,9 @@
                         <small>{{ $user->nim_nip ?? '-' }}</small>
                     </td>
 
-                    <td>{{ $user->email }}</td>
+                    <td>
+                        {{ $user->email }}
+                    </td>
 
                     <td>
                         <span class="badge badge-blue">
@@ -98,15 +111,20 @@
                     </td>
 
                     <td>
-                        @if($currentRole === 'mahasiswa')
+                        @if($isStudent)
                             {{ $user->studySemester?->name ?? '-' }}
+
+                            @if($user->student_group)
+                                <br>
+                                <small>Kelas/Rombel {{ strtoupper($user->student_group) }}</small>
+                            @endif
                         @else
                             -
                         @endif
                     </td>
 
                     <td>
-                        @if($currentRole === 'mahasiswa' && ! $user->is_active)
+                        @if($isPendingStudent)
                             <span class="badge badge-red">
                                 Pending Verifikasi
                             </span>
@@ -118,6 +136,21 @@
                     </td>
 
                     <td class="actions-inline">
+                        @if($isPendingStudent)
+                            <form
+                                method="POST"
+                                action="{{ route('admin.users.verify', $user) }}"
+                                onsubmit="return confirm('Verifikasi akun mahasiswa ini? Email aktivasi akan dikirim ke mahasiswa.')"
+                            >
+                                @csrf
+                                @method('PATCH')
+
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    Verifikasi
+                                </button>
+                            </form>
+                        @endif
+
                         <a class="btn btn-sm" href="{{ route('admin.users.show', $user) }}">
                             Detail
                         </a>
@@ -133,7 +166,9 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6">Belum ada asisten atau mahasiswa.</td>
+                    <td colspan="6">
+                        Belum ada asisten atau mahasiswa.
+                    </td>
                 </tr>
             @endforelse
         </tbody>

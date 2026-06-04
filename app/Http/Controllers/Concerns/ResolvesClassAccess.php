@@ -4,16 +4,23 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\PraktikumClass;
 use App\Models\User;
+use App\Services\StudentAccessService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 trait ResolvesClassAccess
 {
+    protected function studentAccessService(): StudentAccessService
+    {
+        return app(StudentAccessService::class);
+    }
+
     protected function assistantClassesQuery(?User $user = null): Builder
     {
         $user ??= auth()->user();
 
-        return PraktikumClass::query()->where('assistant_id', $user->id);
+        return PraktikumClass::query()
+            ->where('assistant_id', $user->id);
     }
 
     protected function assistantClassOrFail(int $classId, ?User $user = null): PraktikumClass
@@ -24,71 +31,27 @@ trait ResolvesClassAccess
     /**
      * Mengambil ID kelas yang boleh diakses mahasiswa.
      *
-     * Sumber akses mahasiswa:
-     * 1. Kelas reguler berdasarkan semester + rombel mahasiswa.
-     * 2. Kelas gabungan berdasarkan semester + group_members.
-     * 3. Kelas manual/khusus dari tabel class_students.
+     * Sekarang sumber utamanya adalah StudentAccessService,
+     * agar akses halaman LMS sama dengan akses AI chatbot.
      */
     protected function studentClassIds(?User $user = null): array
     {
         $user ??= auth()->user();
 
-        $manualClassIds = $user->kelasDiikuti()
-            ->pluck('classes.id')
-            ->all();
-
-        $automaticClassIds = [];
-
-        if ($user->study_semester_id && $user->student_group) {
-            $studentGroup = strtoupper((string) $user->student_group);
-
-            $automaticClassIds = PraktikumClass::query()
-                ->whereHas('course', function ($query) use ($user) {
-                    $query->where('study_semester_id', $user->study_semester_id);
-                })
-                ->where(function ($query) use ($studentGroup) {
-                    $query
-                        ->where(function ($regularQuery) use ($studentGroup) {
-                            $regularQuery
-                                ->where('class_type', 'regular')
-                                ->where('student_group', $studentGroup);
-                        })
-                        ->orWhere(function ($combinedQuery) use ($studentGroup) {
-                            $combinedQuery
-                                ->where('class_type', 'combined')
-                                ->whereJsonContains('group_members', $studentGroup);
-                        });
-                })
-                ->pluck('classes.id')
-                ->all();
-        }
-
-        return array_values(array_unique(array_merge($manualClassIds, $automaticClassIds)));
+        return $this->studentAccessService()->classIdsForStudent($user);
     }
 
     protected function studentClasses(?User $user = null): Collection
     {
         $user ??= auth()->user();
 
-        $classIds = $this->studentClassIds($user);
-
-        if (empty($classIds)) {
-            return collect();
-        }
-
-        return PraktikumClass::query()
-            ->with(['course.studySemester', 'assistant'])
-            ->whereIn('id', $classIds)
-            ->orderBy('name')
-            ->get();
+        return $this->studentAccessService()->classesForStudent($user);
     }
 
     /**
      * Query dasar mahasiswa.
      *
-     * Mengecek dua sumber role:
-     * 1. users.role = mahasiswa
-     * 2. Spatie role = mahasiswa
+     * Tetap disediakan untuk controller lama yang masih butuh query manual.
      */
     protected function studentUsersQuery(bool $activeOnly = true): Builder
     {
@@ -107,21 +70,17 @@ trait ResolvesClassAccess
     /**
      * Mengambil semua ID mahasiswa yang berhak mengikuti kelas.
      *
-     * Sumber mahasiswa:
-     * 1. Mahasiswa otomatis dari semester mata kuliah + rombel kelas.
-     * 2. Mahasiswa manual/khusus dari tabel class_students.
+     * Sekarang mengikuti StudentAccessService supaya:
+     * - kelas regular sesuai rombel,
+     * - kelas gabungan sesuai group_members,
+     * - class_students tetap didukung,
+     * - users.kelas_id tetap didukung.
      */
     protected function studentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {
-        $class->loadMissing('course');
-
-        $automaticStudentIds = $this->automaticStudentIdsForClass($class, $activeOnly);
-        $manualStudentIds = $this->manualStudentIdsForClass($class, $activeOnly);
-
-        return collect()
-            ->merge($automaticStudentIds)
-            ->merge($manualStudentIds)
-            ->filter()
+        return $this->studentsForClass($class, $activeOnly)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -129,25 +88,24 @@ trait ResolvesClassAccess
 
     protected function studentsForClass(PraktikumClass $class, bool $activeOnly = true): Collection
     {
-        $studentIds = $this->studentIdsForClass($class, $activeOnly);
+        $students = $this->studentAccessService()->studentsForClass($class);
 
-        if (empty($studentIds)) {
-            return collect();
+        if ($activeOnly) {
+            $students = $students->filter(fn ($student) => (bool) $student->is_active);
         }
 
-        return User::query()
-            ->with('studySemester')
-            ->whereIn('id', $studentIds)
-            ->orderBy('student_group')
-            ->orderBy('name')
-            ->get();
+        return $students
+            ->filter(fn ($student) => $student instanceof User)
+            ->unique('id')
+            ->sortBy([
+                fn ($student) => $student->student_group ?? '',
+                fn ($student) => $student->name ?? '',
+            ])
+            ->values();
     }
 
     /**
      * Alias untuk controller lama yang masih memanggil classStudents().
-     *
-     * Jangan dihapus dulu, karena beberapa controller asisten dari hasil merge
-     * masih memakai nama method lama ini.
      */
     protected function classStudents(PraktikumClass $class, bool $activeOnly = true): Collection
     {
@@ -164,7 +122,7 @@ trait ResolvesClassAccess
 
     protected function studentCountForClass(PraktikumClass $class, bool $activeOnly = true): int
     {
-        return count($this->studentIdsForClass($class, $activeOnly));
+        return $this->studentsForClass($class, $activeOnly)->count();
     }
 
     /**
@@ -175,46 +133,20 @@ trait ResolvesClassAccess
         return $this->studentCountForClass($class, $activeOnly);
     }
 
+    /**
+     * Kompatibilitas untuk controller lama.
+     *
+     * Method ini tetap ada agar tidak ada error method not found,
+     * tetapi hasil utamanya tetap mengikuti akses final dari StudentAccessService.
+     */
     protected function automaticStudentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {
-        $class->loadMissing('course');
-
-        if (! $class->course?->study_semester_id) {
-            return [];
-        }
-
-        $query = $this->studentUsersQuery($activeOnly)
-            ->where('study_semester_id', $class->course->study_semester_id);
-
-        $classType = $class->class_type ?? 'regular';
-
-        if ($classType === 'regular') {
-            if (! $class->student_group) {
-                return [];
-            }
-
-            return $query
-                ->where('student_group', strtoupper((string) $class->student_group))
-                ->pluck('users.id')
-                ->all();
-        }
-
-        if ($classType === 'combined') {
-            $members = $this->normalizedGroupMembers($class);
-
-            if (empty($members)) {
-                return [];
-            }
-
-            return $query
-                ->whereIn('student_group', $members)
-                ->pluck('users.id')
-                ->all();
-        }
-
-        return [];
+        return $this->studentIdsForClass($class, $activeOnly);
     }
 
+    /**
+     * Kompatibilitas untuk controller lama yang masih memanggil manualStudentIdsForClass().
+     */
     protected function manualStudentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {
         return $class->students()
@@ -228,13 +160,74 @@ trait ResolvesClassAccess
                     });
             })
             ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
             ->all();
     }
 
+    /**
+     * Kompatibilitas untuk controller/view lama yang masih membaca group_members.
+     */
     protected function normalizedGroupMembers(PraktikumClass $class): array
     {
-        return collect($class->group_members ?? [])
-            ->map(fn ($group) => strtoupper((string) $group))
+        $groupMembers = $class->group_members ?? [];
+
+        if ($groupMembers instanceof Collection) {
+            $groupMembers = $groupMembers->all();
+        }
+
+        if (is_string($groupMembers)) {
+            $decoded = json_decode($groupMembers, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $groupMembers = $decoded;
+            } else {
+                $groupMembers = preg_split('/[,;\/|&\s]+/', $groupMembers) ?: [];
+            }
+        }
+
+        if (! is_array($groupMembers)) {
+            $groupMembers = [$groupMembers];
+        }
+
+        return collect($groupMembers)
+            ->map(function ($group) {
+                if (is_array($group)) {
+                    $group = $group['student_group']
+                        ?? $group['class_group']
+                        ?? $group['group']
+                        ?? $group['rombel']
+                        ?? $group['kelas']
+                        ?? $group['name']
+                        ?? $group['value']
+                        ?? null;
+                }
+
+                if (is_object($group)) {
+                    $array = (array) $group;
+
+                    $group = $array['student_group']
+                        ?? $array['class_group']
+                        ?? $array['group']
+                        ?? $array['rombel']
+                        ?? $array['kelas']
+                        ?? $array['name']
+                        ?? $array['value']
+                        ?? null;
+                }
+
+                if ($group === null) {
+                    return null;
+                }
+
+                $group = strtoupper(trim((string) $group));
+                $group = preg_replace('/\b(KELAS|ROMBEL|GROUP|GRUP|GABUNGAN|COMBINED)\b/u', '', $group);
+                $group = trim((string) $group);
+                $group = trim($group, " \t\n\r\0\x0B:-_");
+
+                return $group !== '' ? $group : null;
+            })
             ->filter()
             ->unique()
             ->values()

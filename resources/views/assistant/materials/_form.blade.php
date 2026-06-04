@@ -1,19 +1,143 @@
-<div class="form-grid">
-    @include('partials.form.select', ['label' => 'Kelas', 'name' => 'class_id', 'required' => true])
+@php
+    $currentType = old('type', $material->type ?? 'pdf');
+
+    $currentFilePath = (string) ($material->file_path ?? '');
+    $currentIsLink = $currentFilePath !== '' && str_starts_with($currentFilePath, 'http');
+
+    $hasExistingPdf = isset($material)
+        && ($material->type ?? null) === 'pdf'
+        && $currentFilePath !== ''
+        && ! $currentIsLink;
+
+    $linkValue = old('link', $currentIsLink ? $currentFilePath : null);
+
+    $publishedAtValue = old(
+        'published_at',
+        isset($material) && $material->published_at
+            ? $material->published_at->timezone(config('app.timezone', 'Asia/Jakarta'))->format('Y-m-d\TH:i')
+            : now(config('app.timezone', 'Asia/Jakarta'))->format('Y-m-d\TH:i')
+    );
+@endphp
+
+<div
+    class="form-grid"
+    x-data="{
+        type: @js($currentType),
+        hasExistingPdf: @js($hasExistingPdf)
+    }"
+>
+    @include('partials.form.select', [
+        'label' => 'Kelas Praktikum',
+        'name' => 'class_id',
+        'required' => true
+    ])
+        <option value="">Pilih kelas praktikum</option>
+
         @foreach(($classes ?? collect()) as $class)
-            <option value="{{ $class->id }}" @selected((string) old('class_id', $material->class_id ?? '') === (string) $class->id)>{{ $class->course?->name }} - {{ $class->name }}</option>
+            @php
+                $courseName = $class->course?->name ?? 'Mata kuliah tidak tersedia';
+                $courseCode = $class->course?->code;
+                $semesterName = $class->course?->studySemester?->name;
+            @endphp
+
+            <option
+                value="{{ $class->id }}"
+                @selected((string) old('class_id', $material->class_id ?? '') === (string) $class->id)
+            >
+                {{ $courseName }}
+                @if($courseCode)
+                    ({{ $courseCode }})
+                @endif
+                - {{ $class->name }}
+                @if($semesterName)
+                    - {{ $semesterName }}
+                @endif
+            </option>
         @endforeach
     </select></label>
 
-    @include('partials.form.select', ['label' => 'Tipe Materi', 'name' => 'type', 'required' => true])
-        @foreach(['pdf' => 'PDF', 'video' => 'Video Link', 'dokumen' => 'Dokumen', 'link' => 'Link'] as $value => $label)
-            <option value="{{ $value }}" @selected(old('type', $material->type ?? 'pdf') === $value)>{{ $label }}</option>
-        @endforeach
+    @include('partials.form.select', [
+        'label' => 'Tipe Materi',
+        'name' => 'type',
+        'required' => true
+    ])
+        <option value="pdf" @selected($currentType === 'pdf')>
+            PDF
+        </option>
+
+        <option value="link" @selected($currentType === 'link')>
+            Link
+        </option>
     </select></label>
 
-    <div style="grid-column:1/-1;">@include('partials.form.input', ['label' => 'Judul Materi', 'name' => 'title', 'value' => $material->title ?? null, 'required' => true])</div>
-    <div style="grid-column:1/-1;">@include('partials.form.textarea', ['label' => 'Deskripsi', 'name' => 'description', 'value' => $material->description ?? null])</div>
-    @include('partials.form.input', ['label' => 'Upload File', 'name' => 'file', 'type' => 'file', 'help' => 'PDF, DOC, DOCX, PPT, PPTX, ZIP, atau RAR. Kosongkan saat edit jika tidak mengganti file.'])
-    @include('partials.form.input', ['label' => 'Link Video / Materi', 'name' => 'link', 'type' => 'url', 'value' => isset($material) && str_starts_with((string) $material->file_path, 'http') ? $material->file_path : null, 'placeholder' => 'https://...'])
-    @include('partials.form.input', ['label' => 'Tanggal Publikasi', 'name' => 'published_at', 'type' => 'datetime-local', 'value' => isset($material) && $material->published_at ? $material->published_at->format('Y-m-d\TH:i') : now()->format('Y-m-d\TH:i')])
+    <div style="grid-column:1/-1;">
+        @include('partials.form.input', [
+            'label' => 'Judul Materi',
+            'name' => 'title',
+            'value' => old('title', $material->title ?? null),
+            'required' => true,
+            'placeholder' => 'Contoh: Pertemuan 1 - Pengenalan Laravel'
+        ])
+    </div>
+
+    <div style="grid-column:1/-1;">
+        @include('partials.form.textarea', [
+            'label' => 'Deskripsi',
+            'name' => 'description',
+            'value' => old('description', $material->description ?? null)
+        ])
+    </div>
+
+    <div style="grid-column:1/-1;" x-show="type === 'pdf'" x-cloak>
+        @if($hasExistingPdf)
+            <div class="alert" style="margin-bottom:12px;">
+                File PDF saat ini sudah tersimpan.
+                Jika tidak ingin mengganti file, kosongkan input upload PDF.
+            </div>
+        @endif
+
+        <label class="form-label" for="file">
+            Upload File PDF
+        </label>
+
+        <input
+            id="file"
+            class="form-control"
+            type="file"
+            name="file"
+            accept="application/pdf,.pdf"
+            :required="type === 'pdf' && ! hasExistingPdf"
+        >
+
+        <small>
+            Hanya file PDF. Maksimal 100 MB. Kosongkan saat edit jika tidak ingin mengganti file.
+        </small>
+
+        @error('file')
+            <div class="text-danger" style="margin-top:6px;">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div style="grid-column:1/-1;" x-show="type === 'link'" x-cloak>
+        @include('partials.form.input', [
+            'label' => 'Link Materi',
+            'name' => 'link',
+            'type' => 'url',
+            'value' => $linkValue,
+            'placeholder' => 'https://youtube.com/... atau https://drive.google.com/...',
+            'help' => 'Bisa menggunakan link YouTube, Google Drive, Vimeo, Loom, website, atau sumber materi online lainnya.'
+        ])
+    </div>
+
+    <div style="grid-column:1/-1;">
+        @include('partials.form.input', [
+            'label' => 'Waktu Publikasi',
+            'name' => 'published_at',
+            'type' => 'datetime-local',
+            'value' => $publishedAtValue,
+            'help' => 'Kosongkan jika ingin langsung dipublikasikan.'
+        ])
+    </div>
 </div>

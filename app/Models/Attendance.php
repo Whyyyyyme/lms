@@ -47,11 +47,106 @@ class Attendance extends Model
 
     public function scopeOpen($query)
     {
-        return $query->where('is_open', true);
+        $now = now();
+
+        return $query
+            ->where('is_open', true)
+            ->whereNotNull('opened_at')
+            ->where('opened_at', '<=', $now)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('closed_at')
+                    ->orWhere('closed_at', '>', $now);
+            });
     }
 
     public function scopeClosed($query)
     {
-        return $query->where('is_open', false);
+        $now = now();
+
+        return $query
+            ->where(function ($query) use ($now) {
+                $query->where('is_open', false)
+                    ->orWhere(function ($query) use ($now) {
+                        $query->whereNotNull('closed_at')
+                            ->where('closed_at', '<=', $now);
+                    });
+            });
+    }
+
+    public function hasStarted(): bool
+    {
+        return $this->opened_at !== null
+            && $this->opened_at->lessThanOrEqualTo(now());
+    }
+
+    public function hasEnded(): bool
+    {
+        return $this->closed_at !== null
+            && $this->closed_at->lessThanOrEqualTo(now());
+    }
+
+    public function isWaitingToOpen(): bool
+    {
+        return $this->opened_at !== null
+            && $this->opened_at->greaterThan(now());
+    }
+
+    public function isWithinOpenWindow(): bool
+    {
+        if (! $this->opened_at || ! $this->closed_at) {
+            return false;
+        }
+
+        $now = now();
+
+        return $this->opened_at->lessThanOrEqualTo($now)
+            && $this->closed_at->greaterThan($now);
+    }
+
+    public function syncOpenStatus(): bool
+    {
+        $shouldBeOpen = $this->isWithinOpenWindow();
+
+        if ((bool) $this->is_open === $shouldBeOpen) {
+            return false;
+        }
+
+        $this->forceFill([
+            'is_open' => $shouldBeOpen,
+        ])->save();
+
+        $this->setAttribute('is_open', $shouldBeOpen);
+
+        return true;
+    }
+
+    public function statusLabel(): string
+    {
+        if ($this->isWaitingToOpen()) {
+            return 'Belum Dibuka';
+        }
+
+        if ($this->hasEnded()) {
+            return 'Ditutup';
+        }
+
+        if ($this->isWithinOpenWindow()) {
+            return 'Sedang Dibuka';
+        }
+
+        return $this->is_open ? 'Sedang Dibuka' : 'Tidak Aktif';
+    }
+
+    public function statusBadgeClass(): string
+    {
+        if ($this->isWithinOpenWindow()) {
+            return 'badge-green';
+        }
+
+        if ($this->isWaitingToOpen()) {
+            return 'badge-blue';
+        }
+
+        return 'badge-red';
     }
 }
