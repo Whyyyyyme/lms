@@ -92,10 +92,15 @@ class MaterialController extends Controller
             'extracted_text' => $extractedText,
             'created_by' => auth()->id(),
             'published_at' => $publishedAt,
+            'published_notification_sent_at' => null,
         ]);
 
         if ($this->materialShouldAppearNow($material)) {
             $this->sendMaterialUploadedNotification($material);
+
+            $material->update([
+                'published_notification_sent_at' => now(),
+            ]);
         }
 
         return redirect()
@@ -128,6 +133,8 @@ class MaterialController extends Controller
     public function update(Request $request, Material $material, FileTextExtractor $fileTextExtractor): RedirectResponse
     {
         $this->assistantClassOrFail((int) $material->class_id);
+
+        $wasPublished = $this->materialShouldAppearNow($material);
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,id'],
@@ -203,6 +210,18 @@ class MaterialController extends Controller
             'extracted_text' => $extractedText,
             'published_at' => $publishedAt,
         ]);
+
+        $material->refresh();
+
+        $isPublishedNow = $this->materialShouldAppearNow($material);
+
+        if (! $wasPublished && $isPublishedNow && ! $material->published_notification_sent_at) {
+            $this->sendMaterialUploadedNotification($material);
+
+            $material->update([
+                'published_notification_sent_at' => now(),
+            ]);
+        }
 
         return redirect()
             ->route('assistant.courses.show', $class)

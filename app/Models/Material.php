@@ -19,12 +19,14 @@ class Material extends Model
         'type',
         'created_by',
         'published_at',
+        'published_notification_sent_at',
     ];
 
     protected function casts(): array
     {
         return [
             'published_at' => 'datetime',
+            'published_notification_sent_at' => 'datetime',
         ];
     }
 

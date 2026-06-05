@@ -93,8 +93,12 @@ class AttendanceController extends Controller
 
         $this->syncAttendanceRecords($attendance);
 
-        if ($attendance->is_open) {
+        if ($attendance->is_open && ! $attendance->opened_notification_sent_at) {
             $this->notifyAttendanceOpened($attendance);
+
+            $attendance->update([
+                'opened_notification_sent_at' => now(),
+            ]);
         }
 
         return redirect()
@@ -157,7 +161,16 @@ class AttendanceController extends Controller
         ]);
 
         $this->syncAttendanceRecords($attendance);
-        $this->notifyAttendanceOpened($attendance->fresh());
+
+        $attendance->refresh();
+
+        if (! $attendance->opened_notification_sent_at) {
+            $this->notifyAttendanceOpened($attendance);
+
+            $attendance->update([
+                'opened_notification_sent_at' => now(),
+            ]);
+        }
 
         return back()->with('success', 'Sesi absensi berhasil dibuka.');
     }
@@ -176,6 +189,7 @@ class AttendanceController extends Controller
         if ($attendance->closed_at && $attendance->closed_at->lessThanOrEqualTo(now())) {
             $attendance->update([
                 'is_open' => false,
+                'closed_notification_sent_at' => $attendance->closed_notification_sent_at ?? now(),
             ]);
 
             return back()->with('info', 'Sesi absensi sudah berada dalam status tertutup.');
@@ -184,6 +198,7 @@ class AttendanceController extends Controller
         $attendance->update([
             'is_open' => false,
             'closed_at' => now(),
+            'closed_notification_sent_at' => $attendance->closed_notification_sent_at ?? now(),
         ]);
 
         return back()->with('success', 'Sesi absensi berhasil ditutup lebih awal.');

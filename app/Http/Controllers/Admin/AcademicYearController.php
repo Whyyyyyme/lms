@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
 use App\Models\AcademicYear;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\View\View;
 
 class AcademicYearController extends Controller
 {
+    use UsesCaseInsensitiveSearch;
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->input('search'));
@@ -20,7 +23,7 @@ class AcademicYearController extends Controller
         $academicYears = AcademicYear::query()
             ->withCount('courses')
             ->when($search !== '', function ($query) use ($search) {
-                $query->where('year', 'like', "%{$search}%");
+                $query->where('year', $this->caseInsensitiveLikeOperator(), $this->likeSearchTerm($search));
             })
             ->when(in_array($semester, ['ganjil', 'genap'], true), function ($query) use ($semester) {
                 $query->where('semester', $semester);

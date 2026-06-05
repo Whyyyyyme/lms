@@ -18,6 +18,8 @@ class Attendance extends Model
         'opened_at',
         'closed_at',
         'is_open',
+        'opened_notification_sent_at',
+        'closed_notification_sent_at',
     ];
 
     protected function casts(): array
@@ -27,6 +29,8 @@ class Attendance extends Model
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
             'is_open' => 'boolean',
+            'opened_notification_sent_at' => 'datetime',
+            'closed_notification_sent_at' => 'datetime',
         ];
     }
 

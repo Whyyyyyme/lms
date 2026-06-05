@@ -142,6 +142,7 @@ class MaterialController extends Controller
     public function download(Material $material)
     {
         abort_unless(in_array($material->class_id, $this->studentClassIds(), true), 403);
+        abort_if($material->published_at === null || $material->published_at->isFuture(), 404);
         abort_if(blank($this->materialSource($material)), 404);
 
         $source = $this->materialSource($material);

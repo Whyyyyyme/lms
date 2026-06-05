@@ -78,7 +78,7 @@
             'label' => 'File Instruksi Tugas',
             'name' => 'file',
             'type' => 'file',
-            'help' => 'PDF, DOC, DOCX, PPT, PPTX, ZIP, atau RAR. Kosongkan saat edit jika tidak mengganti file.'
+            'help' => 'PDF, DOCX, TXT, MD, atau CSV. Kosongkan saat edit jika tidak mengganti file.'
         ])
     </div>
 </div>

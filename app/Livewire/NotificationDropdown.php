@@ -23,6 +23,7 @@ class NotificationDropdown extends Component
         $this->open = ! $this->open;
     }
 
+    #[On('notification-dropdown-close')]
     public function close(): void
     {
         $this->open = false;
@@ -31,7 +32,8 @@ class NotificationDropdown extends Component
     public function markAsRead(string $notificationId): void
     {
         $notification = LmsNotification::query()
-            ->where('user_id', auth()->id())
+            ->lmsRows()
+            ->forUser((int) auth()->id())
             ->whereKey($notificationId)
             ->firstOrFail();
 
@@ -41,7 +43,8 @@ class NotificationDropdown extends Component
     public function markAllAsRead(): void
     {
         LmsNotification::query()
-            ->where('user_id', auth()->id())
+            ->lmsRows()
+            ->forUser((int) auth()->id())
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
@@ -49,7 +52,8 @@ class NotificationDropdown extends Component
     public function deleteNotification(string $notificationId): void
     {
         LmsNotification::query()
-            ->where('user_id', auth()->id())
+            ->lmsRows()
+            ->forUser((int) auth()->id())
             ->whereKey($notificationId)
             ->delete();
     }
@@ -57,13 +61,15 @@ class NotificationDropdown extends Component
     public function render()
     {
         $notifications = LmsNotification::query()
-            ->where('user_id', auth()->id())
+            ->lmsRows()
+            ->forUser((int) auth()->id())
             ->latest()
             ->limit($this->limit)
             ->get();
 
         $unreadCount = LmsNotification::query()
-            ->where('user_id', auth()->id())
+            ->lmsRows()
+            ->forUser((int) auth()->id())
             ->whereNull('read_at')
             ->count();
 

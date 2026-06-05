@@ -47,6 +47,19 @@ class LmsNotification extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function scopeLmsRows($query)
+    {
+        return $query
+            ->whereNotNull('user_id')
+            ->whereNotNull('title')
+            ->whereNotNull('message');
+    }
+
+    public function scopeForUser($query, int $userId)
+    {
+        return $query->where('user_id', $userId);
+    }
+
     public function scopeUnread($query)
     {
         return $query->whereNull('read_at');

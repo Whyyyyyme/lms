@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
 use App\Models\AcademicYear;
 use App\Models\Course;
 use App\Models\StudySemester;
@@ -14,6 +15,8 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
+    use UsesCaseInsensitiveSearch;
+
     public function __construct(private readonly StudentAccessService $studentAccess)
     {
     }
@@ -36,9 +39,12 @@ class CourseController extends Controller
                 $query->where('is_active', $status === '1');
             })
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('code', 'like', "%{$search}%");
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
+
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->where('name', $operator, $term)
+                        ->orWhere('code', $operator, $term);
                 });
             })
             ->orderByDesc('is_active')

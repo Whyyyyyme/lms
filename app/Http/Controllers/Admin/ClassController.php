@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
 use App\Models\Course;
 use App\Models\PraktikumClass;
 use App\Models\StudySemester;
@@ -15,6 +16,8 @@ use Illuminate\View\View;
 
 class ClassController extends Controller
 {
+    use UsesCaseInsensitiveSearch;
+
     private const CLASS_TYPES = [
         'regular' => 'Reguler',
         'combined' => 'Gabungan',
@@ -56,18 +59,21 @@ class ClassController extends Controller
                 $query->where('is_active', $status === '1');
             })
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('room', 'like', "%{$search}%")
-                        ->orWhere('schedule', 'like', "%{$search}%")
-                        ->orWhere('group_label', 'like', "%{$search}%")
-                        ->orWhere('student_group', 'like', "%{$search}%")
-                        ->orWhereHas('course', function ($courseQuery) use ($search) {
-                            $courseQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('code', 'like', "%{$search}%");
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
+
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->where('name', $operator, $term)
+                        ->orWhere('room', $operator, $term)
+                        ->orWhere('schedule', $operator, $term)
+                        ->orWhere('group_label', $operator, $term)
+                        ->orWhere('student_group', $operator, $term)
+                        ->orWhereHas('course', function ($courseQuery) use ($operator, $term) {
+                            $courseQuery->where('name', $operator, $term)
+                                ->orWhere('code', $operator, $term);
                         })
-                        ->orWhereHas('assistant', function ($assistantQuery) use ($search) {
-                            $assistantQuery->where('name', 'like', "%{$search}%");
+                        ->orWhereHas('assistant', function ($assistantQuery) use ($operator, $term) {
+                            $assistantQuery->where('name', $operator, $term);
                         });
                 });
             })

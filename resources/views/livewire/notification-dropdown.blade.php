@@ -1,5 +1,5 @@
 <div class="relative" wire:poll.10s>
-    <button type="button" wire:click="toggle"
+    <button type="button" wire:click="toggle" data-notification-dropdown-toggle
         class="relative rounded-full p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         aria-label="Buka notifikasi">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -17,7 +17,7 @@
 
     @if ($open)
         <div class="absolute right-0 z-50 mt-3 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
-            x-data x-on:click.outside="$wire.close()">
+            data-notification-dropdown-panel>
             <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                 <div>
                     <h3 class="font-semibold text-slate-900">Notifikasi</h3>

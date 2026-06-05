@@ -13,6 +13,7 @@ class NotificationController extends Controller
     {
         $notifications = auth()->user()
             ->lmsNotifications()
+            ->lmsRows()
             ->latest()
             ->paginate(15);
 
@@ -116,6 +117,7 @@ class NotificationController extends Controller
     {
         auth()->user()
             ->lmsNotifications()
+            ->lmsRows()
             ->whereNull('read_at')
             ->update([
                 'read_at' => now(),

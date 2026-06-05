@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
 use App\Models\StudySemester;
 use App\Models\User;
 use App\Notifications\StudentAccountActivated;
@@ -19,6 +20,8 @@ use Throwable;
 
 class UserController extends Controller
 {
+    use UsesCaseInsensitiveSearch;
+
     private const MANAGED_ROLES = ['asisten', 'mahasiswa'];
 
     private const STUDENT_GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -58,11 +61,13 @@ class UserController extends Controller
             })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
 
-                $query->where(function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('nim_nip', 'like', "%{$search}%");
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->where('name', $operator, $term)
+                        ->orWhere('email', $operator, $term)
+                        ->orWhere('nim_nip', $operator, $term);
                 });
             })
             ->latest()

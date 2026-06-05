@@ -12,17 +12,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Throwable;
 
 class AssignmentController extends Controller
 {
     use HandlesLmsNotifications, ResolvesClassAccess;
 
-    public function index(Request $request): View
     private const ALLOWED_ASSIGNMENT_FILE_MIMES = 'pdf,docx,txt,md,csv';
 
     private const MAX_ASSIGNMENT_FILE_SIZE_KB = 102400;
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $selectedClass = $this->selectedAssistantClassFromRequest($request);
 
@@ -151,32 +151,43 @@ class AssignmentController extends Controller
 
         $class = $this->assistantClassOrFail((int) $validated['class_id']);
 
-        $filePath = $assignment->file_path;
+        $oldFilePath = $assignment->file_path;
+        $newFilePath = null;
+        $filePath = $oldFilePath;
         $extractedText = $assignment->extracted_text;
 
         if ($request->hasFile('file')) {
-            if ($filePath) {
-                Storage::disk('public')->delete($filePath);
-            }
-
-            $filePath = $request->file('file')->store('assignments', 'public');
-            $extractedText = $fileTextExtractor->extractFromStoragePath($filePath, 'public');
+            $newFilePath = $request->file('file')->store('assignments', 'public');
+            $filePath = $newFilePath;
+            $extractedText = $fileTextExtractor->extractFromStoragePath($newFilePath, 'public');
         }
 
         $publishedAt = $request->filled('published_at')
             ? Carbon::parse($validated['published_at'], config('app.timezone'))
             : null;
 
-        $assignment->update([
-            'class_id' => $class->id,
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'file_path' => $filePath,
-            'extracted_text' => $extractedText,
-            'deadline' => Carbon::parse($validated['deadline'], config('app.timezone')),
-            'max_score' => $validated['max_score'],
-            'published_at' => $publishedAt,
-        ]);
+        try {
+            $assignment->update([
+                'class_id' => $class->id,
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'file_path' => $filePath,
+                'extracted_text' => $extractedText,
+                'deadline' => Carbon::parse($validated['deadline'], config('app.timezone')),
+                'max_score' => $validated['max_score'],
+                'published_at' => $publishedAt,
+            ]);
+        } catch (Throwable $exception) {
+            if ($newFilePath) {
+                Storage::disk('public')->delete($newFilePath);
+            }
+
+            throw $exception;
+        }
+
+        if ($newFilePath && $oldFilePath && $oldFilePath !== $newFilePath) {
+            Storage::disk('public')->delete($oldFilePath);
+        }
 
         $assignment->refresh();
 

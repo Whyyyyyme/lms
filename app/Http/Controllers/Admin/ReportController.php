@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
 use App\Models\Attendance;
 use App\Models\AttendanceRecord;
 use App\Models\Course;
@@ -16,6 +17,8 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    use UsesCaseInsensitiveSearch;
+
     public function scores(Request $request): View
     {
         $query = $this->scoreReportQuery($request);
@@ -105,6 +108,7 @@ class ReportController extends Controller
             'activities' => $activities,
             'statistics' => $statistics,
             'notificationTypes' => LmsNotification::query()
+                ->lmsRows()
                 ->whereNotNull('type')
                 ->distinct()
                 ->orderBy('type')
@@ -265,19 +269,21 @@ class ReportController extends Controller
             })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
 
-                $query->where(function ($query) use ($search) {
-                    $query->whereHas('student', function ($studentQuery) use ($search) {
-                        $studentQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('nim_nip', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->whereHas('student', function ($studentQuery) use ($operator, $term) {
+                        $studentQuery->where('name', $operator, $term)
+                            ->orWhere('nim_nip', $operator, $term)
+                            ->orWhere('email', $operator, $term);
                     })
-                    ->orWhereHas('assignment', function ($assignmentQuery) use ($search) {
-                        $assignmentQuery->where('title', 'like', "%{$search}%");
+                    ->orWhereHas('assignment', function ($assignmentQuery) use ($operator, $term) {
+                        $assignmentQuery->where('title', $operator, $term);
                     })
-                    ->orWhereHas('assignment.kelas.course', function ($courseQuery) use ($search) {
-                        $courseQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%");
+                    ->orWhereHas('assignment.kelas.course', function ($courseQuery) use ($operator, $term) {
+                        $courseQuery->where('name', $operator, $term)
+                            ->orWhere('code', $operator, $term);
                     });
                 });
             });
@@ -319,17 +325,19 @@ class ReportController extends Controller
             })
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
 
-                $query->where(function ($query) use ($search) {
-                    $query->whereHas('kelas', function ($classQuery) use ($search) {
-                        $classQuery->where('name', 'like', "%{$search}%");
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->whereHas('kelas', function ($classQuery) use ($operator, $term) {
+                        $classQuery->where('name', $operator, $term);
                     })
-                    ->orWhereHas('kelas.course', function ($courseQuery) use ($search) {
-                        $courseQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%");
+                    ->orWhereHas('kelas.course', function ($courseQuery) use ($operator, $term) {
+                        $courseQuery->where('name', $operator, $term)
+                            ->orWhere('code', $operator, $term);
                     })
-                    ->orWhereHas('opener', function ($openerQuery) use ($search) {
-                        $openerQuery->where('name', 'like', "%{$search}%");
+                    ->orWhereHas('opener', function ($openerQuery) use ($operator, $term) {
+                        $openerQuery->where('name', $operator, $term);
                     });
                 });
             });
@@ -338,18 +346,21 @@ class ReportController extends Controller
     private function activityReportQuery(Request $request)
     {
         return LmsNotification::query()
+            ->lmsRows()
             ->with(['user.roles'])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
+                $operator = $this->caseInsensitiveLikeOperator();
+                $term = $this->likeSearchTerm($search);
 
-                $query->where(function ($query) use ($search) {
-                    $query->where('title', 'like', "%{$search}%")
-                        ->orWhere('message', 'like', "%{$search}%")
-                        ->orWhere('type', 'like', "%{$search}%")
-                        ->orWhereHas('user', function ($userQuery) use ($search) {
-                            $userQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%")
-                                ->orWhere('nim_nip', 'like', "%{$search}%");
+                $query->where(function ($query) use ($operator, $term) {
+                    $query->where('title', $operator, $term)
+                        ->orWhere('message', $operator, $term)
+                        ->orWhere('type', $operator, $term)
+                        ->orWhereHas('user', function ($userQuery) use ($operator, $term) {
+                            $userQuery->where('name', $operator, $term)
+                                ->orWhere('email', $operator, $term)
+                                ->orWhere('nim_nip', $operator, $term);
                         });
                 });
             })

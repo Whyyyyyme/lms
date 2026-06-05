@@ -7,7 +7,7 @@
 
     <title>{{ config('app.name', 'LMS Praktikum') }}</title>
 
-    @if (file_exists(public_path('build/')))
+    @if (file_exists(public_path('hot')) || file_exists(public_path('build/manifest.json')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
 
@@ -299,4 +299,3 @@
     </script>
 </body>
 </html>
-manifest.json
