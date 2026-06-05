@@ -157,6 +157,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('/submissions/{submission}', [StudentAssignmentController::class, 'updateSubmission'])->name('submissions.update');
 
             Route::get('/nilai', [StudentGradeController::class, 'index'])->name('grades.index');
+            Route::get('/nilai/riwayat', [StudentGradeController::class, 'history'])->name('grades.history');
 
             Route::get('/absensi', [StudentAttendanceController::class, 'index'])->name('attendances.index');
             Route::post('/absensi/{attendance}/check-in', [StudentAttendanceController::class, 'checkIn'])->name('attendances.check-in');

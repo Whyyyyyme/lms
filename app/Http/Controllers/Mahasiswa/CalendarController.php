@@ -22,7 +22,15 @@ class CalendarController extends Controller
         $previousMonth = $month->copy()->subMonth();
         $nextMonth = $month->copy()->addMonth();
 
-        $allClasses = $this->studentClasses()->load(['course', 'assistant']);
+        /**
+         * studentClasses() bisa mengembalikan Illuminate\Support\Collection kosong
+         * saat mahasiswa belum memiliki mata kuliah aktif. Collection kosong tersebut
+         * tidak memiliki method load(), sehingga sebelumnya halaman jadwal bisa error.
+         *
+         * Relasi course dan assistant sudah di-eager load dari StudentAccessService,
+         * jadi tidak perlu memanggil load() lagi di sini.
+         */
+        $allClasses = $this->studentClasses();
 
         $courses = $allClasses
             ->pluck('course')

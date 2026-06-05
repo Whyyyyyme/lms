@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Assignment;
+use App\Models\PraktikumClass;
 use App\Notifications\DeadlineReminder;
 use App\Services\LmsNotificationService;
 use App\Services\StudentAccessService;
@@ -12,7 +13,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class DeadlineReminderJob implements ShouldQueue
@@ -43,21 +43,29 @@ class DeadlineReminderJob implements ShouldQueue
             $query = Assignment::query()
                 ->with([
                     'kelas.course.studySemester',
+                    'kelas.course.academicYear',
                     'kelas.students.studySemester',
                     'submissions',
                 ])
                 ->whereNotNull('deadline');
 
             $this->applyPublishedFilter($query);
+            $this->applyActiveAcademicYearFilter($query);
             $this->applyDeadlineTargetFilter($query, $amountBefore, $mode);
 
             $query->chunkById(50, function ($assignments) use ($amountBefore, $mode, $notificationService, $studentAccess): void {
                 foreach ($assignments as $assignment) {
-                    if (! $assignment->kelas) {
+                    $class = $assignment->kelas;
+
+                    if (! $class instanceof PraktikumClass) {
                         continue;
                     }
 
-                    $students = $studentAccess->studentsForClass($assignment->kelas);
+                    if (! $this->classBelongsToActiveAcademicYear($class)) {
+                        continue;
+                    }
+
+                    $students = $studentAccess->studentsForClass($class);
 
                     foreach ($students as $student) {
                         $alreadySubmitted = $assignment->submissions
@@ -131,6 +139,51 @@ class DeadlineReminderJob implements ShouldQueue
         if (Schema::hasColumn('assignments', 'status')) {
             $query->where('status', 'published');
         }
+    }
+
+    /**
+     * Reminder deadline hanya boleh berjalan untuk kelas/mata kuliah yang masih berada
+     * pada tahun akademik aktif. Kelas dari tahun akademik nonaktif adalah riwayat,
+     * sehingga tidak boleh mengirim reminder baru ke mahasiswa.
+     */
+    private function applyActiveAcademicYearFilter(Builder $query): void
+    {
+        $query->whereHas('kelas', function (Builder $classQuery): void {
+            $classQuery
+                ->where('is_active', true)
+                ->whereHas('course', function (Builder $courseQuery): void {
+                    $courseQuery
+                        ->where('is_active', true)
+                        ->where(function (Builder $academicYearQuery): void {
+                            $academicYearQuery
+                                ->whereHas('academicYear', function (Builder $query): void {
+                                    $query->where('is_active', true);
+                                })
+                                // Data lama yang belum punya tahun akademik tetap diproses
+                                // agar tidak langsung rusak setelah update kode.
+                                ->orWhereDoesntHave('academicYear');
+                        });
+                });
+        });
+    }
+
+    private function classBelongsToActiveAcademicYear(PraktikumClass $class): bool
+    {
+        $class->loadMissing('course.academicYear');
+
+        if (! (bool) $class->is_active) {
+            return false;
+        }
+
+        $course = $class->course;
+
+        if (! $course || ! (bool) $course->is_active) {
+            return false;
+        }
+
+        $academicYear = $course->academicYear;
+
+        return $academicYear === null || (bool) $academicYear->is_active;
     }
 
     private function reminderMode(): string
