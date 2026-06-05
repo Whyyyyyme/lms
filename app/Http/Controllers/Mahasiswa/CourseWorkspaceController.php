@@ -12,7 +12,6 @@ use App\Models\PraktikumClass;
 use App\Models\Submission;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
@@ -20,24 +19,11 @@ class CourseWorkspaceController extends Controller
 {
     use ResolvesClassAccess;
 
-    public function index(Request $request): View
+    public function index(): View
     {
         $classIds = $this->studentClassIdArray();
 
-        $classes = $classIds === []
-            ? collect()
-            : PraktikumClass::query()
-                ->with(['course.studySemester', 'course.academicYear', 'assistant'])
-                ->withCount([
-                    'materials as published_materials_count' => fn ($query) => $query->published(),
-                    'assignments as published_assignments_count' => fn ($query) => $query->published(),
-                    'attendances as attendances_count',
-                    'announcements as announcements_count',
-                ])
-                ->whereIn('id', $classIds)
-                ->orderBy('name')
-                ->get();
-
+        $classes = $this->loadStudentClassCards($classIds);
         $this->attachCourseProgressData($classes);
 
         $statistics = [
@@ -48,39 +34,68 @@ class CourseWorkspaceController extends Controller
             'open_attendances' => $classes->sum('open_attendances_count'),
         ];
 
-        $upcomingAssignments = Assignment::query()
-            ->with(['kelas.course', 'submissions' => fn ($query) => $query->where('student_id', auth()->id())])
-            ->published()
-            ->whereIn('class_id', $classIds)
-            ->where('deadline', '>=', now())
-            ->orderBy('deadline')
-            ->limit(5)
-            ->get();
+        $upcomingAssignments = $classIds === []
+            ? collect()
+            : Assignment::query()
+                ->with(['kelas.course', 'submissions' => fn ($query) => $query->where('student_id', auth()->id())])
+                ->published()
+                ->whereIn('class_id', $classIds)
+                ->where('deadline', '>=', now())
+                ->orderBy('deadline')
+                ->limit(5)
+                ->get();
 
-        $openAttendances = Attendance::query()
-            ->with(['kelas.course', 'records' => fn ($query) => $query->where('student_id', auth()->id())])
-            ->whereIn('class_id', $classIds)
-            ->whereNotNull('opened_at')
-            ->whereNotNull('closed_at')
-            ->where('opened_at', '<=', now())
-            ->where('closed_at', '>', now())
-            ->orderBy('closed_at')
-            ->limit(5)
-            ->get();
+        $openAttendances = $classIds === []
+            ? collect()
+            : Attendance::query()
+                ->with(['kelas.course', 'records' => fn ($query) => $query->where('student_id', auth()->id())])
+                ->whereIn('class_id', $classIds)
+                ->whereNotNull('opened_at')
+                ->whereNotNull('closed_at')
+                ->where('opened_at', '<=', now())
+                ->where('closed_at', '>', now())
+                ->orderBy('closed_at')
+                ->limit(5)
+                ->get();
 
-        return view('student.courses.index', compact(
-            'classes',
-            'statistics',
-            'upcomingAssignments',
-            'openAttendances'
-        ));
+        return view('student.courses.index', [
+            'classes' => $classes,
+            'statistics' => $statistics,
+            'upcomingAssignments' => $upcomingAssignments,
+            'openAttendances' => $openAttendances,
+            'archivedClassesCount' => count($this->studentArchivedClassIdArray()),
+        ]);
+    }
+
+    public function history(): View
+    {
+        $classIds = $this->studentArchivedClassIdArray();
+
+        $classes = $this->loadStudentClassCards($classIds);
+        $this->attachCourseProgressData($classes);
+
+        $statistics = [
+            'total_classes' => $classes->count(),
+            'total_materials' => $classes->sum('published_materials_count'),
+            'total_assignments' => $classes->sum('published_assignments_count'),
+            'submitted_assignments' => $this->countSubmittedAssignments($classIds),
+            'average_score' => $this->averageScore($classIds),
+        ];
+
+        return view('student.courses.history', [
+            'classes' => $classes,
+            'statistics' => $statistics,
+        ]);
     }
 
     public function show(PraktikumClass $praktikumClass): View
     {
-        $this->ensureStudentCanAccessClass($praktikumClass);
+        $this->ensureStudentCanViewClass($praktikumClass);
 
         $praktikumClass->loadMissing(['course.studySemester', 'course.academicYear', 'assistant']);
+
+        $isArchivedCourse = in_array((int) $praktikumClass->id, $this->studentArchivedClassIdArray(), true)
+            && ! in_array((int) $praktikumClass->id, $this->studentClassIdArray(), true);
 
         $materials = Material::query()
             ->with(['kelas.course', 'creator'])
@@ -97,8 +112,12 @@ class CourseWorkspaceController extends Controller
             ])
             ->published()
             ->where('class_id', $praktikumClass->id)
-            ->orderByRaw('CASE WHEN deadline >= CURRENT_TIMESTAMP THEN 0 ELSE 1 END')
-            ->orderBy('deadline')
+            ->when($isArchivedCourse, function ($query) {
+                $query->latest('deadline');
+            }, function ($query) {
+                $query->orderByRaw('CASE WHEN deadline >= CURRENT_TIMESTAMP THEN 0 ELSE 1 END')
+                    ->orderBy('deadline');
+            })
             ->paginate(8, ['*'], 'tugas_page');
 
         $attendances = Attendance::query()
@@ -119,7 +138,7 @@ class CourseWorkspaceController extends Controller
             ->limit(5)
             ->get();
 
-        $summary = $this->buildClassSummary($praktikumClass, $materials, $assignments, $attendances);
+        $summary = $this->buildClassSummary($praktikumClass, $materials, $assignments, $attendances, $isArchivedCourse);
 
         return view('student.courses.show', [
             'class' => $praktikumClass,
@@ -128,7 +147,30 @@ class CourseWorkspaceController extends Controller
             'attendances' => $attendances,
             'announcements' => $announcements,
             'summary' => $summary,
+            'isArchivedCourse' => $isArchivedCourse,
         ]);
+    }
+
+    /**
+     * @param array<int> $classIds
+     */
+    private function loadStudentClassCards(array $classIds): Collection|EloquentCollection
+    {
+        if ($classIds === []) {
+            return collect();
+        }
+
+        return PraktikumClass::query()
+            ->with(['course.studySemester', 'course.academicYear', 'assistant'])
+            ->withCount([
+                'materials as published_materials_count' => fn ($query) => $query->published(),
+                'assignments as published_assignments_count' => fn ($query) => $query->published(),
+                'attendances as attendances_count',
+                'announcements as announcements_count',
+            ])
+            ->whereIn('id', $classIds)
+            ->orderBy('name')
+            ->get();
     }
 
     private function attachCourseProgressData(Collection|EloquentCollection $classes): void
@@ -198,7 +240,8 @@ class CourseWorkspaceController extends Controller
         PraktikumClass $class,
         LengthAwarePaginator $materials,
         LengthAwarePaginator $assignments,
-        LengthAwarePaginator $attendances
+        LengthAwarePaginator $attendances,
+        bool $isArchivedCourse = false
     ): array {
         $studentId = (int) auth()->id();
 
@@ -213,13 +256,15 @@ class CourseWorkspaceController extends Controller
             ->whereHas('submissions', fn ($query) => $query->where('student_id', $studentId))
             ->count();
 
-        $openAttendances = Attendance::query()
-            ->where('class_id', $class->id)
-            ->whereNotNull('opened_at')
-            ->whereNotNull('closed_at')
-            ->where('opened_at', '<=', now())
-            ->where('closed_at', '>', now())
-            ->count();
+        $openAttendances = $isArchivedCourse
+            ? 0
+            : Attendance::query()
+                ->where('class_id', $class->id)
+                ->whereNotNull('opened_at')
+                ->whereNotNull('closed_at')
+                ->where('opened_at', '<=', now())
+                ->where('closed_at', '>', now())
+                ->count();
 
         $averageScore = Submission::query()
             ->join('assignments', 'submissions.assignment_id', '=', 'assignments.id')
@@ -244,17 +289,73 @@ class CourseWorkspaceController extends Controller
         ];
     }
 
-    private function ensureStudentCanAccessClass(PraktikumClass $class): void
+    /** @param array<int> $classIds */
+    private function countSubmittedAssignments(array $classIds): int
+    {
+        if ($classIds === []) {
+            return 0;
+        }
+
+        $studentId = (int) auth()->id();
+
+        return Assignment::query()
+            ->published()
+            ->whereIn('class_id', $classIds)
+            ->whereHas('submissions', fn ($query) => $query->where('student_id', $studentId))
+            ->count();
+    }
+
+    /** @param array<int> $classIds */
+    private function averageScore(array $classIds): ?float
+    {
+        if ($classIds === []) {
+            return null;
+        }
+
+        $studentId = (int) auth()->id();
+
+        $average = Submission::query()
+            ->join('assignments', 'submissions.assignment_id', '=', 'assignments.id')
+            ->where('submissions.student_id', $studentId)
+            ->whereIn('assignments.class_id', $classIds)
+            ->whereNotNull('submissions.score')
+            ->avg('submissions.score');
+
+        return $average === null ? null : (float) $average;
+    }
+
+    private function ensureStudentCanViewClass(PraktikumClass $class): void
     {
         abort_unless(
-            in_array((int) $class->id, $this->studentClassIdArray(), true),
+            in_array((int) $class->id, $this->studentAllClassIdArray(), true),
             403
         );
     }
 
+    /** @return array<int> */
     private function studentClassIdArray(): array
     {
         return collect($this->studentClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int> */
+    private function studentArchivedClassIdArray(): array
+    {
+        return collect($this->studentArchivedClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int> */
+    private function studentAllClassIdArray(): array
+    {
+        return collect($this->studentAllClassIds())
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()

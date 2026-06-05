@@ -15,12 +15,27 @@ trait ResolvesClassAccess
         return app(StudentAccessService::class);
     }
 
+    /**
+     * Query kelas yang sedang aktif untuk asisten.
+     *
+     * Kelas dari tahun akademik nonaktif tidak lagi muncul di workspace asisten.
+     * Mahasiswa tetap bisa melihatnya melalui tab riwayat masing-masing.
+     */
     protected function assistantClassesQuery(?User $user = null): Builder
     {
         $user ??= auth()->user();
 
         return PraktikumClass::query()
-            ->where('assistant_id', $user->id);
+            ->active()
+            ->where('assistant_id', $user->id)
+            ->whereHas('course', function ($query) {
+                $query->where('is_active', true)
+                    ->where(function ($query) {
+                        $query->whereHas('academicYear', function ($academicYearQuery) {
+                            $academicYearQuery->where('is_active', true);
+                        })->orWhereDoesntHave('academicYear');
+                    });
+            });
     }
 
     protected function assistantClassOrFail(int $classId, ?User $user = null): PraktikumClass
@@ -29,23 +44,54 @@ trait ResolvesClassAccess
     }
 
     /**
-     * Mengambil ID kelas yang boleh diakses mahasiswa.
-     *
-     * Sekarang sumber utamanya adalah StudentAccessService,
-     * agar akses halaman LMS sama dengan akses AI chatbot.
+     * Mengambil ID kelas aktif yang boleh diakses mahasiswa.
      */
     protected function studentClassIds(?User $user = null): array
     {
         $user ??= auth()->user();
 
-        return $this->studentAccessService()->classIdsForStudent($user);
+        return $this->studentAccessService()->activeClassIdsForStudent($user);
+    }
+
+    /**
+     * Mengambil ID kelas riwayat dari tahun akademik yang sudah nonaktif.
+     */
+    protected function studentArchivedClassIds(?User $user = null): array
+    {
+        $user ??= auth()->user();
+
+        return $this->studentAccessService()->archivedClassIdsForStudent($user);
+    }
+
+    /**
+     * Mengambil semua ID kelas yang boleh dibaca mahasiswa, baik aktif maupun riwayat.
+     */
+    protected function studentAllClassIds(?User $user = null): array
+    {
+        $user ??= auth()->user();
+
+        return $this->studentAccessService()->allClassIdsForStudent($user);
     }
 
     protected function studentClasses(?User $user = null): Collection
     {
         $user ??= auth()->user();
 
-        return $this->studentAccessService()->classesForStudent($user);
+        return $this->studentAccessService()->activeClassesForStudent($user);
+    }
+
+    protected function studentArchivedClasses(?User $user = null): Collection
+    {
+        $user ??= auth()->user();
+
+        return $this->studentAccessService()->archivedClassesForStudent($user);
+    }
+
+    protected function studentAllClasses(?User $user = null): Collection
+    {
+        $user ??= auth()->user();
+
+        return $this->studentAccessService()->allClassesForStudent($user);
     }
 
     /**
@@ -69,12 +115,6 @@ trait ResolvesClassAccess
 
     /**
      * Mengambil semua ID mahasiswa yang berhak mengikuti kelas.
-     *
-     * Sekarang mengikuti StudentAccessService supaya:
-     * - kelas regular sesuai rombel,
-     * - kelas gabungan sesuai group_members,
-     * - class_students tetap didukung,
-     * - users.kelas_id tetap didukung.
      */
     protected function studentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {
@@ -135,9 +175,6 @@ trait ResolvesClassAccess
 
     /**
      * Kompatibilitas untuk controller lama.
-     *
-     * Method ini tetap ada agar tidak ada error method not found,
-     * tetapi hasil utamanya tetap mengikuti akses final dari StudentAccessService.
      */
     protected function automaticStudentIdsForClass(PraktikumClass $class, bool $activeOnly = true): array
     {

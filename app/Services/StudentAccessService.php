@@ -11,38 +11,65 @@ use Throwable;
 class StudentAccessService
 {
     /**
-     * Ambil ID kelas yang benar-benar boleh diakses mahasiswa.
+     * Ambil ID kelas aktif yang boleh diakses mahasiswa.
      *
-     * Aturan:
-     * - Mahasiswa hanya boleh melihat kelas sesuai semester.
-     * - Untuk kelas regular, mahasiswa hanya boleh melihat kelas yang student_group-nya sama.
-     * - Untuk kelas gabungan, mahasiswa hanya boleh melihat jika group_members memuat rombel mahasiswa.
-     * - Data lama/manual tetap didukung lewat class_students dan users.kelas_id.
+     * Default method ini sengaja hanya mengembalikan kelas dari tahun akademik aktif.
+     * Untuk riwayat, gunakan archivedClassIdsForStudent().
+     * Untuk akses baca semua data yang pernah boleh dilihat, gunakan allClassIdsForStudent().
      *
      * @return array<int>
      */
-    public function classIdsForStudent(?User $student): array
+    public function classIdsForStudent(?User $student, ?bool $onlyActiveAcademicYear = true): array
     {
         if (! $student) {
             return [];
         }
 
         $classIds = collect();
+        $semesterRules = $this->semesterAccessRulesForStudent($student, $onlyActiveAcademicYear);
+        $allowedStudySemesterIds = $semesterRules
+            ->pluck('study_semester_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
 
         /**
-         * 1. Akses berdasarkan semester + rombel mahasiswa.
-         * Ini yang dipakai untuk mencegah mahasiswa melihat semua kelas dalam semester yang sama.
+         * 1. Akses otomatis berdasarkan semester + rombel mahasiswa.
+         *
+         * Catatan penting:
+         * - Kelas aktif memakai tahun akademik aktif.
+         * - Kelas riwayat memakai tahun akademik nonaktif.
+         * - Jika enrollment menyimpan academic_year_id, aksesnya ikut dipersempit ke tahun tersebut.
          */
-        if ($student->study_semester_id) {
+        if ($semesterRules->isNotEmpty()) {
             $semesterClasses = PraktikumClass::query()
                 ->active()
                 ->with(['course.studySemester', 'course.academicYear', 'assistant'])
-                ->whereHas('course', function ($query) use ($student) {
-                    $query->where('study_semester_id', $student->study_semester_id)
-                        ->where('is_active', true);
+                ->whereHas('course', function ($query) use ($semesterRules) {
+                    $query->where('is_active', true)
+                        ->where(function ($ruleQuery) use ($semesterRules) {
+                            foreach ($semesterRules as $rule) {
+                                $studySemesterId = (int) ($rule['study_semester_id'] ?? 0);
+                                $academicYearId = $rule['academic_year_id'] ?? null;
+
+                                if (! $studySemesterId) {
+                                    continue;
+                                }
+
+                                $ruleQuery->orWhere(function ($query) use ($studySemesterId, $academicYearId) {
+                                    $query->where('study_semester_id', $studySemesterId);
+
+                                    if ($academicYearId) {
+                                        $query->where('academic_year_id', (int) $academicYearId);
+                                    }
+                                });
+                            }
+                        });
                 })
                 ->get()
-                ->filter(fn (PraktikumClass $class) => $this->studentCanAccessClassBySemesterAndGroup($student, $class));
+                ->filter(fn (PraktikumClass $class) => $this->studentCanAccessClassBySemesterAndGroup($student, $class, $allowedStudySemesterIds));
 
             $classIds = $classIds->merge($semesterClasses->pluck('id'));
         }
@@ -63,20 +90,33 @@ class StudentAccessService
             $classIds->push($student->kelas_id);
         }
 
-        return $classIds
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        return $this->filterClassIdsByAcademicYearStatus($classIds, $onlyActiveAcademicYear);
+    }
+
+    /** @return array<int> */
+    public function activeClassIdsForStudent(?User $student): array
+    {
+        return $this->classIdsForStudent($student, true);
+    }
+
+    /** @return array<int> */
+    public function archivedClassIdsForStudent(?User $student): array
+    {
+        return $this->classIdsForStudent($student, false);
+    }
+
+    /** @return array<int> */
+    public function allClassIdsForStudent(?User $student): array
+    {
+        return $this->classIdsForStudent($student, null);
     }
 
     /**
-     * Ambil kelas praktikum yang boleh diakses mahasiswa.
+     * Ambil kelas praktikum aktif yang boleh diakses mahasiswa.
      */
-    public function classesForStudent(?User $student): Collection
+    public function classesForStudent(?User $student, ?bool $onlyActiveAcademicYear = true): Collection
     {
-        $classIds = $this->classIdsForStudent($student);
+        $classIds = $this->classIdsForStudent($student, $onlyActiveAcademicYear);
 
         if ($classIds === []) {
             return collect();
@@ -89,10 +129,25 @@ class StudentAccessService
             ->get();
     }
 
+    public function activeClassesForStudent(?User $student): Collection
+    {
+        return $this->classesForStudent($student, true);
+    }
+
+    public function archivedClassesForStudent(?User $student): Collection
+    {
+        return $this->classesForStudent($student, false);
+    }
+
+    public function allClassesForStudent(?User $student): Collection
+    {
+        return $this->classesForStudent($student, null);
+    }
+
     /**
      * Ambil semua mahasiswa aktif yang berhak mengikuti kelas.
      *
-     * Aturan ini juga diperketat:
+     * Aturan:
      * - Kelas regular E hanya mengambil mahasiswa semester terkait yang rombelnya E.
      * - Kelas gabungan E/F hanya mengambil mahasiswa yang rombelnya E atau F.
      * - Mahasiswa yang ditambahkan manual lewat class_students atau users.kelas_id tetap ikut.
@@ -108,7 +163,7 @@ class StudentAccessService
         $students = collect();
 
         /**
-         * 1. Ambil mahasiswa berdasarkan semester, lalu filter berdasarkan rombel/kelas.
+         * 1. Ambil mahasiswa berdasarkan semester aktifnya, lalu filter berdasarkan rombel/kelas.
          */
         if ($class->course?->study_semester_id) {
             $semesterStudents = User::query()
@@ -118,7 +173,11 @@ class StudentAccessService
                 ->where('study_semester_id', $class->course->study_semester_id)
                 ->orderBy('name')
                 ->get()
-                ->filter(fn (User $student) => $this->studentCanAccessClassBySemesterAndGroup($student, $class));
+                ->filter(fn (User $student) => $this->studentCanAccessClassBySemesterAndGroup(
+                    $student,
+                    $class,
+                    [(int) $class->course->study_semester_id]
+                ));
 
             $students = $students->merge($semesterStudents);
         }
@@ -173,23 +232,118 @@ class StudentAccessService
     }
 
     /**
+     * Buat daftar aturan semester yang boleh dibaca mahasiswa.
+     *
+     * Untuk kelas aktif, yang dipakai adalah semester aktif mahasiswa + enrollment aktif.
+     * Untuk riwayat/semua, enrollment lama juga dipakai agar materi dan tugas lama tetap bisa dibaca.
+     */
+    private function semesterAccessRulesForStudent(User $student, ?bool $onlyActiveAcademicYear): Collection
+    {
+        $rules = collect();
+
+        if ($student->study_semester_id) {
+            $rules->push([
+                'study_semester_id' => (int) $student->study_semester_id,
+                'academic_year_id' => null,
+            ]);
+        }
+
+        if (method_exists($student, 'semesterEnrollments')) {
+            $enrollmentQuery = $student->semesterEnrollments()
+                ->select(['study_semester_id', 'academic_year_id', 'is_active']);
+
+            if ($onlyActiveAcademicYear === true) {
+                $enrollmentQuery->where('is_active', true);
+            }
+
+            $enrollmentQuery->get()->each(function ($enrollment) use ($rules): void {
+                if (! $enrollment->study_semester_id) {
+                    return;
+                }
+
+                $rules->push([
+                    'study_semester_id' => (int) $enrollment->study_semester_id,
+                    'academic_year_id' => $enrollment->academic_year_id ? (int) $enrollment->academic_year_id : null,
+                ]);
+            });
+        }
+
+        return $rules
+            ->filter(fn ($rule) => ! empty($rule['study_semester_id']))
+            ->unique(fn ($rule) => ((int) $rule['study_semester_id']) . ':' . ($rule['academic_year_id'] ?? 'all'))
+            ->values();
+    }
+
+    /**
+     * Filter hasil akses berdasarkan status tahun akademik.
+     *
+     * true  = hanya tahun akademik aktif.
+     * false = hanya tahun akademik nonaktif/riwayat.
+     * null  = semua tahun akademik yang masih punya course/class aktif.
+     *
+     * @return array<int>
+     */
+    private function filterClassIdsByAcademicYearStatus(Collection $classIds, ?bool $onlyActiveAcademicYear): array
+    {
+        $ids = $classIds
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return PraktikumClass::query()
+            ->active()
+            ->whereIn('id', $ids)
+            ->whereHas('course', function ($query) use ($onlyActiveAcademicYear) {
+                $query->where('is_active', true)
+                    ->when($onlyActiveAcademicYear === true, function ($query) {
+                        $query->where(function ($query) {
+                            $query->whereHas('academicYear', fn ($academicYearQuery) => $academicYearQuery->where('is_active', true))
+                                ->orWhereDoesntHave('academicYear');
+                        });
+                    })
+                    ->when($onlyActiveAcademicYear === false, function ($query) {
+                        $query->whereHas('academicYear', fn ($academicYearQuery) => $academicYearQuery->where('is_active', false));
+                    });
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Cek apakah mahasiswa boleh mengakses kelas berdasarkan semester dan rombel.
      *
      * Method ini sengaja tidak mengecek class_students / kelas_id,
      * karena akses manual itu sudah ditambahkan terpisah di classIdsForStudent() dan studentsForClass().
      */
-    private function studentCanAccessClassBySemesterAndGroup(User $student, PraktikumClass $class): bool
+    private function studentCanAccessClassBySemesterAndGroup(User $student, PraktikumClass $class, ?array $allowedStudySemesterIds = null): bool
     {
         $class->loadMissing('course');
 
-        $studentSemesterId = $student->study_semester_id ? (int) $student->study_semester_id : null;
         $classSemesterId = $class->course?->study_semester_id ? (int) $class->course->study_semester_id : null;
 
-        if (! $studentSemesterId || ! $classSemesterId) {
+        if (! $classSemesterId) {
             return false;
         }
 
-        if ($studentSemesterId !== $classSemesterId) {
+        $allowedStudySemesterIds ??= $this->studentStudySemesterIds($student);
+
+        $allowedStudySemesterIds = collect($allowedStudySemesterIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array($classSemesterId, $allowedStudySemesterIds, true)) {
             return false;
         }
 
@@ -225,6 +379,30 @@ class StudentAccessService
          * coba baca dari nama kelas seperti "Kelas E" atau "Rombel E".
          */
         return $this->classNameContainsStudentGroup($class, $studentGroup);
+    }
+
+    /** @return array<int> */
+    private function studentStudySemesterIds(User $student): array
+    {
+        $ids = collect();
+
+        if ($student->study_semester_id) {
+            $ids->push($student->study_semester_id);
+        }
+
+        if (method_exists($student, 'semesterEnrollments')) {
+            $ids = $ids->merge(
+                $student->semesterEnrollments()
+                    ->pluck('study_semester_id')
+            );
+        }
+
+        return $ids
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

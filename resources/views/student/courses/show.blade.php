@@ -9,10 +9,13 @@
 
     $course = $class->course;
     $timezone = config('app.timezone', 'Asia/Jakarta');
+    $isArchivedCourse = $isArchivedCourse ?? false;
 
-    $backUrl = Route::has('student.courses.index')
-        ? route('student.courses.index')
-        : route('student.dashboard');
+    $backUrl = $isArchivedCourse && Route::has('student.courses.history')
+        ? route('student.courses.history')
+        : (Route::has('student.courses.index')
+            ? route('student.courses.index')
+            : route('student.dashboard'));
 
     $scheduleUrl = Route::has('student.schedule.index')
         ? route('student.schedule.index', ['mata_kuliah' => $course?->id])
@@ -35,13 +38,13 @@
         @endif
 
         @if($course?->academicYear)
-            · {{ $course->academicYear->name }}
+            · {{ trim(($course->academicYear->year ?? '') . ' ' . ($course->academicYear->semester ?? '')) }}
         @endif
     </p>
 
     <div class="hero-actions">
         <a href="{{ $backUrl }}" class="btn">
-            ← Mata Kuliah Saya
+            ← {{ $isArchivedCourse ? 'Riwayat Mata Kuliah' : 'Mata Kuliah Saya' }}
         </a>
 
         <a href="#materi" class="btn btn-primary">
@@ -58,6 +61,12 @@
     </div>
 </section>
 
+@if($isArchivedCourse)
+    <div class="alert" style="margin-bottom: 18px;">
+        Mata kuliah ini berasal dari tahun akademik yang sudah selesai. Kamu tetap bisa membaca materi, tugas, absensi, pengumuman, nilai, dan feedback, tetapi aktivitas baru seperti check-in absensi atau submit tugas tidak tersedia.
+    </div>
+@endif
+
 <section class="card" style="margin-bottom: 18px;">
     <div class="section-header">
         <div>
@@ -67,8 +76,8 @@
             </div>
         </div>
 
-        <span class="status-pill status-info">
-            {{ $class->name }}
+        <span class="status-pill {{ $isArchivedCourse ? 'status-muted' : 'status-info' }}">
+            {{ $isArchivedCourse ? 'Riwayat' : $class->name }}
         </span>
     </div>
 
@@ -442,9 +451,11 @@
                                     default => 'status-muted',
                                 };
 
-                                $canCheckIn = method_exists($attendance, 'isWithinOpenWindow')
-                                    ? $attendance->isWithinOpenWindow() && $studentStatus === 'alpha'
-                                    : $attendance->is_open && $studentStatus === 'alpha';
+                                $canCheckIn = ! $isArchivedCourse && (
+                                    method_exists($attendance, 'isWithinOpenWindow')
+                                        ? $attendance->isWithinOpenWindow() && $studentStatus === 'alpha'
+                                        : $attendance->is_open && $studentStatus === 'alpha'
+                                );
                             @endphp
 
                             <tr>

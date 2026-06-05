@@ -18,6 +18,8 @@
     $isExpired = $assignment->deadline && $assignment->deadline->lessThan(now());
     $isSubmitted = (bool) $submission;
     $isGraded = $submission && $submission->score !== null;
+    $isArchivedAssignment = $isArchivedAssignment ?? false;
+    $canSubmit = ! $isArchivedAssignment && ! $isExpired;
 
     if ($class && Route::has('student.courses.show')) {
         $backUrl = route('student.courses.show', $class);
@@ -72,7 +74,11 @@
                 </div>
             </div>
 
-            @if($isExpired)
+            @if($isArchivedAssignment)
+                <span class="status-pill status-muted">
+                    Riwayat
+                </span>
+            @elseif($isExpired)
                 <span class="status-pill status-danger">
                     Deadline lewat
                 </span>
@@ -207,49 +213,59 @@
             </div>
         @endif
 
-        <form
-            action="{{ $submission ? route('student.submissions.update', $submission) : route('student.assignments.submit', $assignment) }}"
-            method="POST"
-            enctype="multipart/form-data"
-            class="form-card"
-            style="padding: 0; border: 0; box-shadow: none;"
-        >
-            @csrf
+        @if($canSubmit)
+            <form
+                action="{{ $submission ? route('student.submissions.update', $submission) : route('student.assignments.submit', $assignment) }}"
+                method="POST"
+                enctype="multipart/form-data"
+                class="form-card"
+                style="padding: 0; border: 0; box-shadow: none;"
+            >
+                @csrf
 
-            @if($submission)
-                @method('PUT')
-            @endif
+                @if($submission)
+                    @method('PUT')
+                @endif
 
-            <div class="form-group">
-                <label for="file" class="form-label">
-                    {{ $submission ? 'Ganti File Submission' : 'Upload File Submission' }}
-                    <span class="required">*</span>
-                </label>
+                <div class="form-group">
+                    <label for="file" class="form-label">
+                        {{ $submission ? 'Ganti File Submission' : 'Upload File Submission' }}
+                        <span class="required">*</span>
+                    </label>
 
-                <input
-                    id="file"
-                    type="file"
-                    name="file"
-                    class="form-control"
-                    required
-                >
+                    <input
+                        id="file"
+                        type="file"
+                        name="file"
+                        class="form-control"
+                        required
+                    >
 
-                <div class="form-help">
-                    Format: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, RAR, TXT, CSV, JPG, JPEG, atau PNG.
-                    Maksimal 100 MB.
+                    <div class="form-help">
+                        Format: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, RAR, TXT, CSV, JPG, JPEG, atau PNG.
+                        Maksimal 100 MB.
+                    </div>
+
+                    @error('file')
+                        <div class="form-help" style="color: var(--danger);">
+                            {{ $message }}
+                        </div>
+                    @enderror
                 </div>
 
-                @error('file')
-                    <div class="form-help" style="color: var(--danger);">
-                        {{ $message }}
-                    </div>
-                @enderror
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    {{ $submission ? 'Update Submission' : 'Kumpulkan Tugas' }}
+                </button>
+            </form>
+        @else
+            <div class="alert">
+                @if($isArchivedAssignment)
+                    Tugas ini berasal dari tahun akademik yang sudah selesai. Kamu masih bisa melihat instruksi, file, nilai, dan feedback, tetapi tidak bisa mengumpulkan atau memperbarui submission.
+                @else
+                    Deadline tugas sudah berakhir. Kamu masih bisa melihat detail tugas dan hasil penilaian.
+                @endif
             </div>
-
-            <button type="submit" class="btn btn-primary" style="width: 100%;">
-                {{ $submission ? 'Update Submission' : 'Kumpulkan Tugas' }}
-            </button>
-        </form>
+        @endif
     </aside>
 </div>
 

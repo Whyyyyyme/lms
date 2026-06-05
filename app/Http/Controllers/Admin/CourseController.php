@@ -71,7 +71,7 @@ class CourseController extends Controller
             'study_semester_id' => ['required', 'exists:study_semesters,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50', 'unique:courses,code'],
-            'sks' => ['required', 'integer', 'min:1', 'max:6'],
+            'sks' => ['required', 'integer', 'min:1', 'max:3'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -113,7 +113,7 @@ class CourseController extends Controller
             'study_semester_id' => ['required', 'exists:study_semesters,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50', Rule::unique('courses', 'code')->ignore($course->id)],
-            'sks' => ['required', 'integer', 'min:1', 'max:6'],
+            'sks' => ['required', 'integer', 'min:1', 'max:3'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 

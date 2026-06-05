@@ -20,12 +20,13 @@ class MahasiswaDashboardController extends Controller
         $studentId = (int) auth()->id();
         $classIds = $this->studentClassIds();
 
-        $classes = $this->studentClasses()
-            ->load([
-                'course.studySemester',
-                'course.academicYear',
-                'assistant',
-            ]);
+        /**
+         * studentClasses() bisa mengembalikan Illuminate\Support\Collection kosong
+         * ketika mahasiswa belum memiliki mata kuliah. Collection kosong tersebut
+         * tidak punya method load(), sehingga dashboard error.
+         * Relasi kelas sudah di-eager load dari StudentAccessService::classesForStudent().
+         */
+        $classes = $this->studentClasses();
 
         $statistics = [
             'total_kelas' => count($classIds),

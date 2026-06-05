@@ -16,7 +16,6 @@ class MaterialController extends Controller
     public function index(): View
     {
         $classIds = $this->studentClassIds();
-
         $courseIds = $this->studentClasses()
             ->pluck('course_id')
             ->filter()
@@ -24,34 +23,27 @@ class MaterialController extends Controller
             ->unique()
             ->values();
 
-        $materialStats = collect();
+        $courses = $this->buildCourseMaterialCards($courseIds, $classIds);
 
-        if ($classIds !== []) {
-            $materialStats = Material::query()
-                ->published()
-                ->join('classes', 'materials.class_id', '=', 'classes.id')
-                ->whereIn('materials.class_id', $classIds)
-                ->selectRaw('classes.course_id, COUNT(materials.id) as total_materials, MAX(materials.published_at) as latest_material_at')
-                ->groupBy('classes.course_id')
-                ->get()
-                ->keyBy('course_id');
-        }
+        return view('student.materials.index', [
+            'courses' => $courses,
+            'archivedClassesCount' => count($this->studentArchivedClassIds()),
+        ]);
+    }
 
-        $courses = Course::query()
-            ->with(['studySemester', 'academicYear'])
-            ->whereIn('id', $courseIds)
-            ->orderBy('name')
-            ->get()
-            ->map(function (Course $course) use ($materialStats) {
-                $stats = $materialStats->get($course->id);
+    public function history(): View
+    {
+        $classIds = $this->studentArchivedClassIds();
+        $courseIds = $this->studentArchivedClasses()
+            ->pluck('course_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
-                $course->setAttribute('materials_count', (int) ($stats->total_materials ?? 0));
-                $course->setAttribute('latest_material_at', $stats->latest_material_at ?? null);
+        $courses = $this->buildCourseMaterialCards($courseIds, $classIds);
 
-                return $course;
-            });
-
-        return view('student.materials.index', compact('courses'));
+        return view('student.materials.history', compact('courses'));
     }
 
     public function course(Course $course): View
@@ -79,13 +71,74 @@ class MaterialController extends Controller
             ->paginate(10);
 
         $course->loadMissing(['studySemester', 'academicYear']);
+        $isHistoryTab = false;
 
-        return view('student.materials.course', compact('course', 'materials'));
+        return view('student.materials.course', compact('course', 'materials', 'isHistoryTab'));
+    }
+
+    public function historyCourse(Course $course): View
+    {
+        $classIds = $this->studentArchivedClassIds();
+
+        $allowedCourseIds = $this->studentArchivedClasses()
+            ->pluck('course_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        abort_unless(in_array((int) $course->id, $allowedCourseIds, true), 403);
+
+        $materials = Material::query()
+            ->with(['kelas.course', 'creator'])
+            ->published()
+            ->whereIn('class_id', $classIds)
+            ->whereHas('kelas', function ($query) use ($course) {
+                $query->where('course_id', $course->id);
+            })
+            ->latest('published_at')
+            ->paginate(10);
+
+        $course->loadMissing(['studySemester', 'academicYear']);
+        $isHistoryTab = true;
+
+        return view('student.materials.course', compact('course', 'materials', 'isHistoryTab'));
+    }
+
+    private function buildCourseMaterialCards($courseIds, array $classIds)
+    {
+        $materialStats = collect();
+
+        if ($classIds !== []) {
+            $materialStats = Material::query()
+                ->published()
+                ->join('classes', 'materials.class_id', '=', 'classes.id')
+                ->whereIn('materials.class_id', $classIds)
+                ->selectRaw('classes.course_id, COUNT(materials.id) as total_materials, MAX(materials.published_at) as latest_material_at')
+                ->groupBy('classes.course_id')
+                ->get()
+                ->keyBy('course_id');
+        }
+
+        return Course::query()
+            ->with(['studySemester', 'academicYear'])
+            ->whereIn('id', $courseIds)
+            ->orderBy('name')
+            ->get()
+            ->map(function (Course $course) use ($materialStats) {
+                $stats = $materialStats->get($course->id);
+
+                $course->setAttribute('materials_count', (int) ($stats->total_materials ?? 0));
+                $course->setAttribute('latest_material_at', $stats->latest_material_at ?? null);
+
+                return $course;
+            });
     }
 
     public function show(Material $material): View
     {
-        abort_unless(in_array($material->class_id, $this->studentClassIds(), true), 403);
+        abort_unless(in_array((int) $material->class_id, $this->studentAllClassIds(), true), 403);
         abort_if($material->published_at === null || $material->published_at->isFuture(), 404);
 
         $material->load(['kelas.course', 'creator']);
@@ -97,7 +150,7 @@ class MaterialController extends Controller
 
     public function preview(Material $material)
     {
-        abort_unless(in_array($material->class_id, $this->studentClassIds(), true), 403);
+        abort_unless(in_array((int) $material->class_id, $this->studentAllClassIds(), true), 403);
         abort_if($material->published_at === null || $material->published_at->isFuture(), 404);
 
         $source = $this->materialSource($material);
@@ -141,7 +194,7 @@ class MaterialController extends Controller
 
     public function download(Material $material)
     {
-        abort_unless(in_array($material->class_id, $this->studentClassIds(), true), 403);
+        abort_unless(in_array((int) $material->class_id, $this->studentAllClassIds(), true), 403);
         abort_if($material->published_at === null || $material->published_at->isFuture(), 404);
         abort_if(blank($this->materialSource($material)), 404);
 

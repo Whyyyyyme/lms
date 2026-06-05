@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LmsNotification;
+use App\Support\LmsNotificationPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
@@ -16,6 +17,12 @@ class NotificationController extends Controller
             ->lmsRows()
             ->latest()
             ->paginate(15);
+
+        $notifications->getCollection()->transform(function (LmsNotification $notification): LmsNotification {
+            $notification->setAttribute('display_data', LmsNotificationPresenter::displayData($notification));
+
+            return $notification;
+        });
 
         return view('notifications.index', compact('notifications'));
     }
@@ -32,10 +39,15 @@ class NotificationController extends Controller
 
         $data = is_array($notification->data) ? $notification->data : [];
 
+        if (isset($data['data']) && is_array($data['data'])) {
+            $data = array_merge($data['data'], $data);
+            unset($data['data']);
+        }
+
         $url = data_get($data, 'url');
 
         if (filled($url)) {
-            return redirect()->to($this->safeRedirectUrl($url));
+            return redirect()->to($this->safeRedirectUrl((string) $url));
         }
 
         $type = strtolower((string) $notification->type);
@@ -53,6 +65,7 @@ class NotificationController extends Controller
 
         if (
             str_contains($type, 'assignment') ||
+            str_contains($type, 'deadline') ||
             str_contains($type, 'tugas') ||
             str_contains($title, 'tugas') ||
             str_contains($message, 'tugas')
@@ -150,6 +163,10 @@ class NotificationController extends Controller
 
         if (! empty($parsedUrl['host']) && $parsedUrl['host'] !== request()->getHost()) {
             return route('notifications.index');
+        }
+
+        if (str_starts_with($url, '/')) {
+            return url($url);
         }
 
         return $url;

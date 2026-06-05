@@ -33,7 +33,7 @@ class AssignmentController extends Controller
 
         $assignments = Assignment::query()
             ->with([
-                'kelas.course',
+                'kelas.course.academicYear',
                 'submissions' => fn ($query) => $query->where('student_id', auth()->id()),
             ])
             ->whereIn('class_id', $studentClassIds)
@@ -41,27 +41,49 @@ class AssignmentController extends Controller
             ->orderBy('deadline')
             ->paginate(10);
 
-        return view('student.assignments.index', compact('assignments'));
+        return view('student.assignments.index', [
+            'assignments' => $assignments,
+            'archivedClassesCount' => count($this->studentArchivedClassIdArray()),
+        ]);
+    }
+
+    public function history(): View
+    {
+        $studentClassIds = $this->studentArchivedClassIdArray();
+
+        $assignments = Assignment::query()
+            ->with([
+                'kelas.course.academicYear',
+                'submissions' => fn ($query) => $query->where('student_id', auth()->id()),
+            ])
+            ->whereIn('class_id', $studentClassIds)
+            ->published()
+            ->latest('deadline')
+            ->paginate(10);
+
+        return view('student.assignments.history', compact('assignments'));
     }
 
     public function show(Assignment $assignment): View
     {
-        $this->ensureStudentCanAccessAssignment($assignment);
+        $this->ensureStudentCanViewAssignment($assignment);
 
         $assignment->load([
-            'kelas.course',
+            'kelas.course.academicYear',
             'creator',
             'submissions' => fn ($query) => $query->where('student_id', auth()->id()),
         ]);
 
         $submission = $assignment->submissions->first();
+        $isArchivedAssignment = in_array((int) $assignment->class_id, $this->studentArchivedClassIdArray(), true)
+            && ! in_array((int) $assignment->class_id, $this->studentClassIdArray(), true);
 
-        return view('student.assignments.show', compact('assignment', 'submission'));
+        return view('student.assignments.show', compact('assignment', 'submission', 'isArchivedAssignment'));
     }
 
     public function submit(Request $request, Assignment $assignment): RedirectResponse
     {
-        $this->ensureStudentCanAccessAssignment($assignment);
+        $this->ensureStudentCanSubmitAssignment($assignment);
 
         abort_if(
             now()->greaterThan($assignment->deadline),
@@ -109,7 +131,7 @@ class AssignmentController extends Controller
 
         $submission->load('assignment');
 
-        $this->ensureStudentCanAccessAssignment($submission->assignment);
+        $this->ensureStudentCanSubmitAssignment($submission->assignment);
 
         abort_if(
             now()->greaterThan($submission->assignment->deadline),
@@ -141,12 +163,10 @@ class AssignmentController extends Controller
         return back()->with('success', 'Submission tugas berhasil diperbarui.');
     }
 
-    private function ensureStudentCanAccessAssignment(Assignment $assignment): void
+    private function ensureStudentCanViewAssignment(Assignment $assignment): void
     {
-        $studentClassIds = $this->studentClassIdArray();
-
         abort_unless(
-            in_array((int) $assignment->class_id, $studentClassIds, true),
+            in_array((int) $assignment->class_id, $this->studentAllClassIdArray(), true),
             403
         );
 
@@ -156,9 +176,42 @@ class AssignmentController extends Controller
         );
     }
 
+    private function ensureStudentCanSubmitAssignment(Assignment $assignment): void
+    {
+        abort_unless(
+            in_array((int) $assignment->class_id, $this->studentClassIdArray(), true),
+            403,
+            'Tugas ini berasal dari tahun akademik yang sudah selesai sehingga hanya bisa dilihat sebagai riwayat.'
+        );
+
+        abort_unless(
+            $assignment->is_published,
+            404
+        );
+    }
+
+    /** @return array<int> */
     private function studentClassIdArray(): array
     {
         return collect($this->studentClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int> */
+    private function studentArchivedClassIdArray(): array
+    {
+        return collect($this->studentArchivedClassIds())
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int> */
+    private function studentAllClassIdArray(): array
+    {
+        return collect($this->studentAllClassIds())
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();

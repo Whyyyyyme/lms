@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Materi Praktikum')
+@section('title', 'Riwayat Materi')
 
 @section('content')
 @php
@@ -10,27 +10,26 @@
 <section class="dashboard-hero">
     <div class="eyebrow">Mahasiswa</div>
 
-    <h1>Materi Praktikum</h1>
+    <h1>Riwayat Materi</h1>
 
     <p>
-        Pilih mata kuliah untuk melihat materi praktikum yang sudah dipublikasikan oleh asisten.
-        Materi ditampilkan berdasarkan mata kuliah dan kelas yang bisa kamu akses.
+        Pilih mata kuliah riwayat untuk membaca kembali materi dari tahun akademik atau semester yang sudah selesai.
     </p>
 
     <div class="hero-actions">
-        <a href="{{ route('student.dashboard') }}" class="btn">
-            ← Dashboard
+        <a href="{{ route('student.materials.index') }}" class="btn">
+            ← Materi Aktif
         </a>
 
-        @if(\Illuminate\Support\Facades\Route::has('student.courses.index'))
-            <a href="{{ route('student.courses.index') }}" class="btn btn-primary">
-                📚 Mata Kuliah Saya
+        @if(\Illuminate\Support\Facades\Route::has('student.courses.history'))
+            <a href="{{ route('student.courses.history') }}" class="btn btn-primary">
+                🕘 Riwayat Mata Kuliah
             </a>
         @endif
 
-        @if(\Illuminate\Support\Facades\Route::has('student.materials.history'))
-            <a href="{{ route('student.materials.history') }}" class="btn">
-                🕘 Riwayat{{ isset($archivedClassesCount) ? ' ('.$archivedClassesCount.')' : '' }}
+        @if(\Illuminate\Support\Facades\Route::has('student.assignments.history'))
+            <a href="{{ route('student.assignments.history') }}" class="btn">
+                📝 Riwayat Tugas
             </a>
         @endif
     </div>
@@ -39,44 +38,37 @@
 <section class="card">
     <div class="section-header">
         <div>
-            <h2 class="section-title">Daftar Mata Kuliah</h2>
+            <h2 class="section-title">Daftar Mata Kuliah Riwayat</h2>
             <div class="section-subtitle">
-                Masuk ke salah satu mata kuliah untuk melihat daftar materi praktikum.
+                Materi lama dikelompokkan per mata kuliah agar alurnya tetap sama seperti halaman materi aktif.
             </div>
         </div>
     </div>
 
     @if($courses->isEmpty())
         <div class="empty-state">
-            <div style="font-size: 34px; margin-bottom: 8px;">📚</div>
+            <div style="font-size: 34px; margin-bottom: 8px;">📘</div>
 
-            <h3 class="empty-state-title">
-                Belum ada mata kuliah
-            </h3>
+            <h3 class="empty-state-title">Belum ada riwayat materi</h3>
 
             <p class="empty-state-text">
-                Mata kuliah akan muncul sesuai semester mahasiswa dan akses kelas praktikum aktif.
+                Riwayat materi akan muncul setelah ada kelas yang kamu ikuti dan tahun akademiknya dinonaktifkan oleh admin.
             </p>
-
-            @if(($archivedClassesCount ?? 0) > 0 && \Illuminate\Support\Facades\Route::has('student.materials.history'))
-                <div style="margin-top: 14px;">
-                    <a href="{{ route('student.materials.history') }}" class="btn btn-primary">
-                        Lihat Riwayat Materi
-                    </a>
-                </div>
-            @endif
         </div>
     @else
         <div class="course-grid">
             @foreach($courses as $course)
-                <a
-                    href="{{ route('student.materials.course', $course) }}"
-                    class="course-card"
-                >
+                <a href="{{ route('student.materials.history-course', $course) }}" class="course-card">
                     <div>
-                        <span class="course-code">
-                            {{ $course->code ?? 'Mata Kuliah' }}
-                        </span>
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                            <span class="course-code">
+                                {{ $course->code ?? 'Mata Kuliah' }}
+                            </span>
+
+                            <span class="status-pill status-muted">
+                                Riwayat
+                            </span>
+                        </div>
 
                         <h3 class="course-title">
                             {{ $course->name }}
@@ -113,8 +105,8 @@
                     </div>
 
                     <div class="course-footer">
-                        <span class="status-pill status-info">
-                            Lihat materi
+                        <span class="status-pill status-muted">
+                            Lihat riwayat materi
                         </span>
 
                         <span style="font-weight: 900; color: var(--primary);">

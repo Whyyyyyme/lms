@@ -138,9 +138,12 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/dashboard', [MahasiswaDashboardController::class, 'index'])->name('dashboard');
 
             Route::get('/mata-kuliah', [StudentCourseWorkspaceController::class, 'index'])->name('courses.index');
+            Route::get('/mata-kuliah/riwayat', [StudentCourseWorkspaceController::class, 'history'])->name('courses.history');
             Route::get('/mata-kuliah/{praktikumClass}', [StudentCourseWorkspaceController::class, 'show'])->name('courses.show');
 
             Route::get('/materi', [StudentMaterialController::class, 'index'])->name('materials.index');
+            Route::get('/materi/riwayat', [StudentMaterialController::class, 'history'])->name('materials.history');
+            Route::get('/materi/riwayat/mata-kuliah/{course}', [StudentMaterialController::class, 'historyCourse'])->name('materials.history-course');
             Route::get('/materi/mata-kuliah/{course}', [StudentMaterialController::class, 'course'])->name('materials.course');
 
             Route::get('/materi/{material}', [StudentMaterialController::class, 'show'])->name('materials.show');
@@ -148,6 +151,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/materi/{material}/download', [StudentMaterialController::class, 'download'])->name('materials.download');
 
             Route::get('/tugas', [StudentAssignmentController::class, 'index'])->name('assignments.index');
+            Route::get('/tugas/riwayat', [StudentAssignmentController::class, 'history'])->name('assignments.history');
             Route::get('/tugas/{assignment}', [StudentAssignmentController::class, 'show'])->name('assignments.show');
             Route::post('/tugas/{assignment}/submit', [StudentAssignmentController::class, 'submit'])->name('assignments.submit');
             Route::put('/submissions/{submission}', [StudentAssignmentController::class, 'updateSubmission'])->name('submissions.update');

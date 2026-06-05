@@ -7,21 +7,31 @@
     $totalMaterials = method_exists($materials, 'total')
         ? $materials->total()
         : $materials->count();
+
+    $isHistoryTab = $isHistoryTab ?? false;
+    $backUrl = $isHistoryTab && \Illuminate\Support\Facades\Route::has('student.materials.history')
+        ? route('student.materials.history')
+        : route('student.materials.index');
 @endphp
 
 <section class="dashboard-hero">
     <div class="eyebrow">Mahasiswa</div>
 
-    <h1>Materi {{ $course->name }}</h1>
+    <h1>{{ $isHistoryTab ? 'Riwayat Materi' : 'Materi' }} {{ $course->name }}</h1>
 
     <p>
-        Daftar materi praktikum berdasarkan mata kuliah yang kamu pilih.
-        Buka materi untuk melihat file, link, atau penjelasan yang sudah dipublikasikan oleh asisten.
+        @if($isHistoryTab)
+            Materi ini berasal dari mata kuliah pada tahun akademik/semester yang sudah selesai.
+            Kamu tetap bisa membaca file, link, atau penjelasan lama sebagai arsip pembelajaran.
+        @else
+            Daftar materi praktikum berdasarkan mata kuliah yang kamu pilih.
+            Buka materi untuk melihat file, link, atau penjelasan yang sudah dipublikasikan oleh asisten.
+        @endif
     </p>
 
     <div class="hero-actions">
-        <a href="{{ route('student.materials.index') }}" class="btn">
-            ← Kembali ke Mata Kuliah
+        <a href="{{ $backUrl }}" class="btn">
+            ← {{ $isHistoryTab ? 'Riwayat Materi' : 'Kembali ke Mata Kuliah' }}
         </a>
 
         @if(\Illuminate\Support\Facades\Route::has('student.dashboard'))
@@ -80,14 +90,14 @@
 <section class="card">
     <div class="section-header">
         <div>
-            <h2 class="section-title">Daftar Materi</h2>
+            <h2 class="section-title">{{ $isHistoryTab ? 'Daftar Riwayat Materi' : 'Daftar Materi' }}</h2>
             <div class="section-subtitle">
-                Materi ditampilkan dari yang tersedia untuk mata kuliah ini.
+                {{ $isHistoryTab ? 'Materi lama ditampilkan dari yang tersedia pada mata kuliah riwayat ini.' : 'Materi ditampilkan dari yang tersedia untuk mata kuliah ini.' }}
             </div>
         </div>
 
-        <a href="{{ route('student.materials.index') }}" class="btn btn-sm">
-            Semua Mata Kuliah
+        <a href="{{ $backUrl }}" class="btn btn-sm">
+            {{ $isHistoryTab ? 'Semua Riwayat Materi' : 'Semua Mata Kuliah' }}
         </a>
     </div>
 
@@ -96,11 +106,11 @@
             <div style="font-size: 34px; margin-bottom: 8px;">📘</div>
 
             <h3 class="empty-state-title">
-                Belum ada materi
+                {{ $isHistoryTab ? 'Belum ada riwayat materi' : 'Belum ada materi' }}
             </h3>
 
             <p class="empty-state-text">
-                Belum ada materi yang dipublikasikan untuk mata kuliah ini.
+                {{ $isHistoryTab ? 'Belum ada materi lama yang tersimpan untuk mata kuliah ini.' : 'Belum ada materi yang dipublikasikan untuk mata kuliah ini.' }}
             </p>
         </div>
     @else
@@ -145,8 +155,8 @@
                     </div>
 
                     <div class="course-footer">
-                        <span class="status-pill status-info">
-                            Buka materi
+                        <span class="status-pill {{ $isHistoryTab ? 'status-muted' : 'status-info' }}">
+                            {{ $isHistoryTab ? 'Buka riwayat' : 'Buka materi' }}
                         </span>
 
                         <span style="font-weight: 900; color: var(--primary);">

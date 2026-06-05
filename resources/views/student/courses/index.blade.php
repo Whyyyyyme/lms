@@ -40,6 +40,12 @@
                 🗓️ Jadwal Praktikum
             </a>
         @endif
+
+        @if(Route::has('student.courses.history'))
+            <a href="{{ route('student.courses.history') }}" class="btn">
+                🕘 Riwayat{{ isset($archivedClassesCount) ? ' ('.$archivedClassesCount.')' : '' }}
+            </a>
+        @endif
     </div>
 </section>
 
@@ -97,6 +103,14 @@
                 <p class="empty-state-text">
                     Mata kuliah akan muncul jika akun mahasiswa sudah memiliki semester dan rombel yang sesuai dengan kelas praktikum aktif.
                 </p>
+
+                @if(($archivedClassesCount ?? 0) > 0 && Route::has('student.courses.history'))
+                    <div style="margin-top: 14px;">
+                        <a href="{{ route('student.courses.history') }}" class="btn btn-primary">
+                            Lihat Riwayat Mata Kuliah
+                        </a>
+                    </div>
+                @endif
             </div>
         @else
             <div class="course-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">

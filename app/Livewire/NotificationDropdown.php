@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\LmsNotification;
+use App\Support\LmsNotificationPresenter;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -65,7 +66,12 @@ class NotificationDropdown extends Component
             ->forUser((int) auth()->id())
             ->latest()
             ->limit($this->limit)
-            ->get();
+            ->get()
+            ->map(function (LmsNotification $notification): LmsNotification {
+                $notification->setAttribute('display_data', LmsNotificationPresenter::displayData($notification));
+
+                return $notification;
+            });
 
         $unreadCount = LmsNotification::query()
             ->lmsRows()

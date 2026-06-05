@@ -56,7 +56,7 @@
         'type' => 'number',
         'value' => $course->sks ?? 1,
         'required' => true,
-        'help' => 'Isi angka 1 sampai 6.'
+        'help' => 'Isi angka 1 sampai 3.'
     ])
 </div>
 
