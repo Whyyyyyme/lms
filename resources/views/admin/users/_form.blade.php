@@ -1,23 +1,44 @@
 @php
-    $selectedRole = old('role', isset($user) ? ($user->roles->pluck('name')->first() ?: $user->role) : 'mahasiswa');
+    $studySemesters = $studySemesters ?? collect();
+
+    $selectedRole = old(
+        'role',
+        isset($user) ? ($user->roles->pluck('name')->first() ?: $user->role) : 'mahasiswa'
+    );
 
     $studentGroups = $studentGroups ?? ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
     $selectedStudentGroup = old('student_group', $user->student_group ?? '');
+
+    $isActiveChecked = old('is_active', isset($user) ? (bool) $user->is_active : true);
 @endphp
 
-<div class="grid gap-5 md:grid-cols-2">
-    @include('partials.form.input', [
-        'label' => 'Nama Lengkap',
-        'name' => 'name',
-        'value' => $user->name ?? null,
-        'required' => true
-    ])
+<div class="form-grid">
+    <div class="form-group">
+        <label for="name" class="form-label">
+            Nama Lengkap <span class="required">*</span>
+        </label>
 
-    <label class="form-group" for="nim_nip">
-        <span class="form-label">
+        <input
+            id="name"
+            type="text"
+            name="name"
+            class="form-control"
+            value="{{ old('name', $user->name ?? null) }}"
+            placeholder="Masukkan nama lengkap"
+            required
+        >
+
+        @error('name')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group">
+        <label for="nim_nip" class="form-label">
             <span id="identifier-label">NIM Mahasiswa</span>
-        </span>
+        </label>
 
         <input
             id="nim_nip"
@@ -25,58 +46,110 @@
             type="text"
             value="{{ old('nim_nip', $user->nim_nip ?? '') }}"
             class="form-control"
+            placeholder="Masukkan NIM / NIP / kode asisten"
         >
 
-        <small id="identifier-help" class="form-help">
+        <div id="identifier-help" class="form-help">
             Isi NIM untuk mahasiswa.
-        </small>
-    </label>
+        </div>
 
-    @include('partials.form.input', [
-        'label' => 'Email Aktif',
-        'name' => 'email',
-        'type' => 'email',
-        'value' => $user->email ?? null,
-        'required' => true,
-        'placeholder' => 'contoh: nama@gmail.com',
-        'help' => 'Gunakan email asli yang bisa dibuka oleh mahasiswa/asisten. Password email tidak dibutuhkan; password di bawah adalah password khusus untuk login LMS.'
-    ])
+        @error('nim_nip')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
 
-    <label class="form-group" for="role">
-        <span class="form-label">Jenis Akun <span class="required">*</span></span>
+    <div class="form-group">
+        <label for="email" class="form-label">
+            Email Aktif <span class="required">*</span>
+        </label>
+
+        <input
+            id="email"
+            type="email"
+            name="email"
+            class="form-control"
+            value="{{ old('email', $user->email ?? null) }}"
+            placeholder="contoh: nama@gmail.com"
+            required
+        >
+
+        <div class="form-help">
+            Gunakan email asli yang bisa dibuka oleh mahasiswa/asisten. Password email tidak dibutuhkan;
+            password di bawah adalah password khusus untuk login LMS.
+        </div>
+
+        @error('email')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group">
+        <label for="role" class="form-label">
+            Jenis Akun <span class="required">*</span>
+        </label>
 
         <select id="role" name="role" required class="form-control">
             <option value="mahasiswa" @selected($selectedRole === 'mahasiswa')>
                 Mahasiswa
             </option>
+
             <option value="asisten" @selected($selectedRole === 'asisten')>
                 Asisten Praktikum
             </option>
         </select>
-    </label>
 
-    <label class="form-group" for="study_semester_id" id="semester-wrapper">
-        <span class="form-label">Semester Mahasiswa <span class="required">*</span></span>
+        <div class="form-help">
+            Pilih apakah user ini mahasiswa atau asisten praktikum.
+        </div>
+
+        @error('role')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group" id="semester-wrapper">
+        <label for="study_semester_id" class="form-label">
+            Semester Mahasiswa <span class="required">*</span>
+        </label>
 
         <select id="study_semester_id" name="study_semester_id" class="form-control">
             <option value="">Pilih semester mahasiswa</option>
+
             @foreach ($studySemesters as $semester)
-                <option value="{{ $semester->id }}" @selected((string) old('study_semester_id', $user->study_semester_id ?? '') === (string) $semester->id)>
+                <option
+                    value="{{ $semester->id }}"
+                    @selected((string) old('study_semester_id', $user->study_semester_id ?? '') === (string) $semester->id)
+                >
                     {{ $semester->name }}
                 </option>
             @endforeach
         </select>
 
-        <small class="form-help">
+        <div class="form-help">
             Mahasiswa wajib masuk ke salah satu semester.
-        </small>
-    </label>
+        </div>
 
-    <label class="form-group" for="student_group" id="student-group-wrapper">
-        <span class="form-label">Kelas/Rombel Mahasiswa <span class="required">*</span></span>
+        @error('study_semester_id')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group" id="student-group-wrapper">
+        <label for="student_group" class="form-label">
+            Kelas/Rombel Mahasiswa <span class="required">*</span>
+        </label>
 
         <select id="student_group" name="student_group" class="form-control">
             <option value="">Pilih kelas/rombel</option>
+
             @foreach ($studentGroups as $group)
                 <option value="{{ $group }}" @selected((string) $selectedStudentGroup === (string) $group)>
                     Kelas {{ $group }}
@@ -84,43 +157,123 @@
             @endforeach
         </select>
 
-        <small class="form-help">
+        <div class="form-help">
             Pilih rombel mahasiswa sesuai kelas perkuliahan, misalnya A, B, C, sampai H.
-        </small>
-    </label>
+        </div>
 
-    @include('partials.form.input', [
-        'label' => isset($user) ? 'Password LMS Baru' : 'Password LMS',
-        'name' => 'password',
-        'type' => 'password',
-        'required' => !isset($user),
-        'help' => isset($user)
-            ? 'Kosongkan jika tidak ingin mengganti password LMS user ini.'
-            : 'Password ini khusus untuk login ke LMS, bukan password Gmail/email pengguna.'
-    ])
+        @error('student_group')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
 
-    @include('partials.form.input', [
-        'label' => 'Konfirmasi Password LMS',
-        'name' => 'password_confirmation',
-        'type' => 'password',
-        'required' => !isset($user)
-    ])
+    <div class="form-group">
+        <label for="password" class="form-label">
+            {{ isset($user) ? 'Password LMS Baru' : 'Password LMS' }}
+            @if(! isset($user))
+                <span class="required">*</span>
+            @endif
+        </label>
+
+        <input
+            id="password"
+            type="password"
+            name="password"
+            class="form-control"
+            placeholder="{{ isset($user) ? 'Kosongkan jika tidak ingin mengganti password' : 'Masukkan password LMS' }}"
+            @required(! isset($user))
+        >
+
+        <div class="form-help">
+            @if(isset($user))
+                Kosongkan jika tidak ingin mengganti password LMS user ini.
+            @else
+                Password ini khusus untuk login ke LMS, bukan password Gmail/email pengguna.
+            @endif
+        </div>
+
+        @error('password')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group">
+        <label for="password_confirmation" class="form-label">
+            Konfirmasi Password LMS
+            @if(! isset($user))
+                <span class="required">*</span>
+            @endif
+        </label>
+
+        <input
+            id="password_confirmation"
+            type="password"
+            name="password_confirmation"
+            class="form-control"
+            placeholder="Ulangi password LMS"
+            @required(! isset($user))
+        >
+
+        @error('password_confirmation')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group" style="grid-column: 1 / -1;">
+        <label class="form-label">
+            Status Akun
+        </label>
+
+        <label
+            style="
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                background: #f8fafc;
+                cursor: pointer;
+            "
+        >
+            <input
+                type="checkbox"
+                name="is_active"
+                value="1"
+                @checked($isActiveChecked)
+                style="width: 16px; height: 16px;"
+            >
+
+            <span style="font-weight: 800; color: #334155;">
+                User aktif
+            </span>
+        </label>
+
+        <div class="form-help">
+            Jika dinonaktifkan, user tidak dapat digunakan sebagai akun aktif di sistem.
+        </div>
+
+        @error('is_active')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
 </div>
 
-<p id="student-note" class="mt-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
+<div id="student-note" class="alert" style="margin-top: 16px;">
+    <strong>Catatan mahasiswa:</strong>
     Form mahasiswa membutuhkan semester dan kelas/rombel. Mata kuliah dan kelas praktikum yang muncul untuk mahasiswa akan mengikuti semester serta rombel tersebut.
-</p>
+</div>
 
-<p id="assistant-note" class="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+<div id="assistant-note" class="alert" style="margin-top: 16px;">
+    <strong>Catatan asisten:</strong>
     Form asisten tidak membutuhkan semester dan kelas/rombel. Asisten akan dihubungkan ke kelas praktikum melalui fitur kelola kelas.
-</p>
-
-<div class="mt-5">
-    @include('partials.form.checkbox', [
-        'label' => 'User aktif',
-        'name' => 'is_active',
-        'checked' => $user->is_active ?? true
-    ])
 </div>
 
 <script>
@@ -140,6 +293,10 @@
         const identifierHelp = document.getElementById('identifier-help');
 
         function toggleFormByRole() {
+            if (! roleSelect) {
+                return;
+            }
+
             if (roleSelect.value === 'mahasiswa') {
                 semesterWrapper.style.display = '';
                 semesterSelect.setAttribute('required', 'required');

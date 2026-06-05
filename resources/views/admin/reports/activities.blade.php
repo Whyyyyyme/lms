@@ -3,51 +3,100 @@
 @section('title', 'Laporan Aktivitas')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Laporan',
-    'title' => 'Aktivitas Sistem',
-    'description' => 'Pantau aktivitas notifikasi sistem untuk asisten dan mahasiswa.'
-])
+@php
+    use Illuminate\Support\Facades\Route;
 
-<div class="grid grid-4" style="margin-bottom:18px;">
-    @include('partials.stat-card', [
-        'label' => 'Total Aktivitas',
-        'value' => $statistics['total_activities'] ?? 0,
-        'icon' => '📌'
-    ])
+    $statistics = $statistics ?? [];
+    $notificationTypes = $notificationTypes ?? collect();
+    $activities = $activities ?? collect();
 
-    @include('partials.stat-card', [
-        'label' => 'Belum Dibaca',
-        'value' => $statistics['unread_activities'] ?? 0,
-        'icon' => '🔔'
-    ])
+    $dashboardUrl = Route::has('admin.dashboard')
+        ? route('admin.dashboard')
+        : '#';
+@endphp
 
-    @include('partials.stat-card', [
-        'label' => 'Sudah Dibaca',
-        'value' => $statistics['read_activities'] ?? 0,
-        'icon' => '✅'
-    ])
+<section class="dashboard-hero">
+    <div class="eyebrow">Laporan Admin</div>
 
-    @include('partials.stat-card', [
-        'label' => 'Hari Ini',
-        'value' => $statistics['today_activities'] ?? 0,
-        'icon' => '📅'
-    ])
+    <h1>Aktivitas Sistem</h1>
+
+    <p>
+        Pantau aktivitas notifikasi sistem untuk asisten dan mahasiswa berdasarkan tipe aktivitas,
+        penerima, status baca, dan rentang tanggal.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+    </div>
+</section>
+
+<div class="grid grid-4" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Total Aktivitas</div>
+        <div class="stat-value">
+            {{ $statistics['total_activities'] ?? 0 }}
+        </div>
+        <div class="stat-note">
+            Total aktivitas notifikasi yang tercatat.
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Belum Dibaca</div>
+        <div class="stat-value">
+            {{ $statistics['unread_activities'] ?? 0 }}
+        </div>
+        <div class="stat-note">
+            Aktivitas yang belum dibaca penerima.
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Sudah Dibaca</div>
+        <div class="stat-value">
+            {{ $statistics['read_activities'] ?? 0 }}
+        </div>
+        <div class="stat-note">
+            Aktivitas yang sudah dibaca penerima.
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Hari Ini</div>
+        <div class="stat-value">
+            {{ $statistics['today_activities'] ?? 0 }}
+        </div>
+        <div class="stat-note">
+            Aktivitas yang dibuat pada hari ini.
+        </div>
+    </div>
 </div>
 
-<div class="toolbar">
+<section class="card" style="margin-bottom: 18px;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Filter Aktivitas Sistem</h2>
+            <div class="section-subtitle">
+                Gunakan filter untuk melihat aktivitas berdasarkan judul, pesan, user, tipe, role penerima, status baca, atau rentang tanggal.
+            </div>
+        </div>
+    </div>
+
     <form method="GET" class="actions-inline">
         <input
             class="form-control"
-            style="width:240px;"
+            style="width: 240px;"
             type="search"
             name="search"
             value="{{ request('search') }}"
             placeholder="Cari judul/pesan/user"
         >
 
-        <select class="form-control" style="width:220px;" name="type">
+        <select class="form-control" style="width: 220px;" name="type">
             <option value="">Semua tipe aktivitas</option>
+
             @foreach($notificationTypes as $type)
                 <option value="{{ $type }}" @selected(request('type') === $type)>
                     {{ str_replace(['_', '.'], ' ', $type) }}
@@ -55,21 +104,25 @@
             @endforeach
         </select>
 
-        <select class="form-control" style="width:170px;" name="read_status">
+        <select class="form-control" style="width: 170px;" name="read_status">
             <option value="">Semua status</option>
+
             <option value="unread" @selected(request('read_status') === 'unread')>
                 Belum dibaca
             </option>
+
             <option value="read" @selected(request('read_status') === 'read')>
                 Sudah dibaca
             </option>
         </select>
 
-        <select class="form-control" style="width:170px;" name="role">
+        <select class="form-control" style="width: 170px;" name="role">
             <option value="">Semua penerima</option>
+
             <option value="asisten" @selected(request('role') === 'asisten')>
                 Asisten
             </option>
+
             <option value="mahasiswa" @selected(request('role') === 'mahasiswa')>
                 Mahasiswa
             </option>
@@ -77,7 +130,7 @@
 
         <input
             class="form-control"
-            style="width:160px;"
+            style="width: 160px;"
             type="date"
             name="date_from"
             value="{{ request('date_from') }}"
@@ -85,7 +138,7 @@
 
         <input
             class="form-control"
-            style="width:160px;"
+            style="width: 160px;"
             type="date"
             name="date_to"
             value="{{ request('date_to') }}"
@@ -101,89 +154,141 @@
             </a>
         @endif
     </form>
-</div>
+</section>
 
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Waktu</th>
-                <th>Aktivitas</th>
-                <th>Tipe</th>
-                <th>Penerima</th>
-                <th>Role</th>
-                <th>Status Baca</th>
-            </tr>
-        </thead>
+<section class="card">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Data Aktivitas Sistem</h2>
+            <div class="section-subtitle">
+                Daftar aktivitas notifikasi beserta waktu, tipe, penerima, role, dan status baca.
+            </div>
+        </div>
+    </div>
 
-        <tbody>
-            @forelse($activities as $activity)
-                @php
-                    $userRole = $activity->user?->roles?->pluck('name')->first() ?: $activity->user?->role;
+    @if($activities->count() === 0)
+        <div class="empty-state">
+            <h3 class="empty-state-title">
+                Belum ada aktivitas sistem
+            </h3>
 
-                    $roleLabel = match ($userRole) {
-                        'asisten' => 'Asisten',
-                        'mahasiswa' => 'Mahasiswa',
-                        'admin' => 'Admin',
-                        default => '-',
-                    };
-                @endphp
+            <p class="empty-state-text">
+                Belum ada aktivitas sistem sesuai filter yang dipilih.
+            </p>
+        </div>
+    @else
+        <div class="table-card">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Aktivitas</th>
+                            <th>Tipe</th>
+                            <th>Penerima</th>
+                            <th>Role</th>
+                            <th>Status Baca</th>
+                        </tr>
+                    </thead>
 
-                <tr>
-                    <td>
-                        <strong>{{ $activity->created_at?->format('d M Y') ?? '-' }}</strong>
-                        <br>
-                        <small>{{ $activity->created_at?->format('H:i') ?? '-' }}</small>
-                    </td>
+                    <tbody>
+                        @foreach($activities as $activity)
+                            @php
+                                $userRole = $activity->user?->roles?->pluck('name')->first() ?: $activity->user?->role;
 
-                    <td>
-                        <strong>{{ $activity->title ?? $activity->type }}</strong>
-                        <br>
-                        <small>{{ $activity->message ?? '-' }}</small>
-                    </td>
+                                $roleLabel = match ($userRole) {
+                                    'asisten' => 'Asisten',
+                                    'mahasiswa' => 'Mahasiswa',
+                                    'admin' => 'Admin',
+                                    default => '-',
+                                };
 
-                    <td>
-                        <span class="badge badge-blue">
-                            {{ str_replace(['_', '.'], ' ', $activity->type) }}
-                        </span>
-                    </td>
+                                $roleClass = match ($userRole) {
+                                    'asisten' => 'status-info',
+                                    'mahasiswa' => 'status-success',
+                                    'admin' => 'status-warning',
+                                    default => 'status-muted',
+                                };
 
-                    <td>
-                        <strong>{{ $activity->user?->name ?? '-' }}</strong>
-                        <br>
-                        <small>{{ $activity->user?->email ?? '-' }}</small>
-                    </td>
+                                $typeLabel = str_replace(['_', '.'], ' ', $activity->type);
+                            @endphp
 
-                    <td>
-                        {{ $roleLabel }}
-                    </td>
+                            <tr>
+                                <td>
+                                    <div style="display: grid; gap: 5px;">
+                                        <strong>
+                                            {{ $activity->created_at?->format('d M Y') ?? '-' }}
+                                        </strong>
 
-                    <td>
-                        @if($activity->read_at)
-                            <span class="badge badge-green">
-                                Sudah dibaca
-                            </span>
-                            <br>
-                            <small>{{ $activity->read_at?->format('d M Y H:i') }}</small>
-                        @else
-                            <span class="badge badge-red">
-                                Belum dibaca
-                            </span>
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6">
-                        Belum ada aktivitas sistem sesuai filter.
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $activity->created_at?->format('H:i') ?? '-' }}
+                                        </span>
+                                    </div>
+                                </td>
 
-<div style="margin-top:16px;">
-    {{ $activities->links() }}
-</div>
+                                <td>
+                                    <div style="display: grid; gap: 5px;">
+                                        <strong>
+                                            {{ $activity->title ?? $activity->type }}
+                                        </strong>
+
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $activity->message ?? '-' }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="status-pill status-muted">
+                                        {{ $typeLabel }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div style="display: grid; gap: 5px;">
+                                        <strong>
+                                            {{ $activity->user?->name ?? '-' }}
+                                        </strong>
+
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $activity->user?->email ?? '-' }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="status-pill {{ $roleClass }}">
+                                        {{ $roleLabel }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if($activity->read_at)
+                                        <div style="display: grid; gap: 5px;">
+                                            <span class="status-pill status-success">
+                                                Sudah dibaca
+                                            </span>
+
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $activity->read_at?->format('d M Y H:i') }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        <span class="status-pill status-danger">
+                                            Belum dibaca
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+            {{ $activities->links() }}
+        </div>
+    @endif
+</section>
 @endsection
