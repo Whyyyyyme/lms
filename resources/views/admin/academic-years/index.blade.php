@@ -3,109 +3,198 @@
 @section('title', 'Tahun Akademik')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Admin',
-    'title' => 'Tahun Akademik',
-    'description' => 'Kelola periode tahun akademik untuk mata kuliah praktikum.'
-])
+@php
+    use Illuminate\Support\Facades\Route;
 
-<div class="toolbar">
+    $academicYears = $academicYears ?? collect();
+
+    $dashboardUrl = Route::has('admin.dashboard')
+        ? route('admin.dashboard')
+        : '#';
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Admin</div>
+
+    <h1>Tahun Akademik</h1>
+
+    <p>
+        Kelola periode tahun akademik untuk mata kuliah praktikum.
+        Tahun akademik digunakan sebagai penanda periode ganjil atau genap pada data mata kuliah.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+
+        <a href="{{ route('admin.tahun-akademik.create') }}" class="btn btn-primary">
+            + Tambah Tahun Akademik
+        </a>
+    </div>
+</section>
+
+<section class="card" style="margin-bottom: 18px;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Filter Tahun Akademik</h2>
+            <div class="section-subtitle">
+                Cari tahun akademik berdasarkan tahun, periode semester, atau status aktif.
+            </div>
+        </div>
+    </div>
+
     <form method="GET" class="actions-inline">
         <input
             class="form-control"
-            style="width:220px;"
+            style="width: 230px;"
             type="search"
             name="search"
             value="{{ request('search') }}"
             placeholder="Cari tahun akademik"
         >
 
-        <select class="form-control" style="width:160px;" name="semester">
+        <select class="form-control" style="width: 170px;" name="semester">
             <option value="">Semua periode</option>
-            <option value="ganjil" @selected(request('semester') === 'ganjil')>Ganjil</option>
-            <option value="genap" @selected(request('semester') === 'genap')>Genap</option>
+
+            <option value="ganjil" @selected(request('semester') === 'ganjil')>
+                Ganjil
+            </option>
+
+            <option value="genap" @selected(request('semester') === 'genap')>
+                Genap
+            </option>
         </select>
 
-        <select class="form-control" style="width:150px;" name="status">
+        <select class="form-control" style="width: 160px;" name="status">
             <option value="">Semua status</option>
-            <option value="1" @selected(request('status') === '1')>Aktif</option>
-            <option value="0" @selected(request('status') === '0')>Nonaktif</option>
+
+            <option value="1" @selected(request('status') === '1')>
+                Aktif
+            </option>
+
+            <option value="0" @selected(request('status') === '0')>
+                Nonaktif
+            </option>
         </select>
 
-        <button class="btn" type="submit">Filter</button>
+        <button class="btn" type="submit">
+            Filter
+        </button>
 
         @if(request()->hasAny(['search', 'semester', 'status']))
-            <a href="{{ route('admin.tahun-akademik.index') }}" class="btn">Reset</a>
+            <a href="{{ route('admin.tahun-akademik.index') }}" class="btn">
+                Reset
+            </a>
         @endif
     </form>
+</section>
 
-    <a href="{{ route('admin.tahun-akademik.create') }}" class="btn btn-primary">
-        + Tambah Tahun Akademik
-    </a>
-</div>
+<section class="card">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Daftar Tahun Akademik</h2>
+            <div class="section-subtitle">
+                Kelola tahun akademik, periode semester, status, dan jumlah mata kuliah yang terhubung.
+            </div>
+        </div>
 
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Tahun</th>
-                <th>Periode</th>
-                <th>Status</th>
-                <th>Mata Kuliah</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
+        <a href="{{ route('admin.tahun-akademik.create') }}" class="btn btn-primary btn-sm">
+            + Tambah Tahun Akademik
+        </a>
+    </div>
 
-        <tbody>
-            @forelse($academicYears as $academicYear)
-                <tr>
-                    <td>
-                        <strong>{{ $academicYear->year }}</strong>
-                    </td>
+    @if($academicYears->count() === 0)
+        <div class="empty-state">
+            <div style="font-size: 34px; margin-bottom: 8px;">📅</div>
 
-                    <td>
-                        {{ ucfirst($academicYear->semester) }}
-                    </td>
+            <h3 class="empty-state-title">
+                Belum ada tahun akademik
+            </h3>
 
-                    <td>
-                        <span class="badge {{ $academicYear->is_active ? 'badge-green' : 'badge-red' }}">
-                            {{ $academicYear->is_active ? 'Aktif' : 'Nonaktif' }}
-                        </span>
-                    </td>
+            <p class="empty-state-text">
+                Data tahun akademik akan tampil setelah admin menambahkan periode tahun akademik.
+            </p>
+        </div>
+    @else
+        <div class="table-card">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tahun</th>
+                            <th>Periode</th>
+                            <th>Status</th>
+                            <th>Mata Kuliah</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
 
-                    <td>
-                        {{ $academicYear->courses_count ?? 0 }}
-                    </td>
+                    <tbody>
+                        @foreach($academicYears as $academicYear)
+                            @php
+                                $coursesCount = (int) ($academicYear->courses_count ?? 0);
+                            @endphp
 
-                    <td class="actions-inline">
-                        <a class="btn btn-sm" href="{{ route('admin.tahun-akademik.show', $academicYear) }}">
-                            Detail
-                        </a>
+                            <tr>
+                                <td>
+                                    <div style="display: grid; gap: 5px;">
+                                        <strong>
+                                            {{ $academicYear->year }}
+                                        </strong>
 
-                        <a class="btn btn-sm" href="{{ route('admin.tahun-akademik.edit', $academicYear) }}">
-                            Edit
-                        </a>
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            Tahun akademik {{ $academicYear->year }}
+                                        </span>
+                                    </div>
+                                </td>
 
-                        @if(($academicYear->courses_count ?? 0) === 0)
-                            @include('partials.delete-button', [
-                                'action' => route('admin.tahun-akademik.destroy', $academicYear),
-                                'confirm' => 'Yakin ingin menghapus tahun akademik ini?'
-                            ])
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="5">
-                        Belum ada tahun akademik.
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
+                                <td>
+                                    <span class="status-pill {{ $academicYear->semester === 'ganjil' ? 'status-warning' : 'status-info' }}">
+                                        {{ ucfirst($academicYear->semester) }}
+                                    </span>
+                                </td>
 
-<div style="margin-top:16px;">
-    {{ $academicYears->links() }}
-</div>
+                                <td>
+                                    <span class="status-pill {{ $academicYear->is_active ? 'status-success' : 'status-danger' }}">
+                                        {{ $academicYear->is_active ? 'Aktif' : 'Nonaktif' }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="status-pill status-muted">
+                                        {{ $coursesCount }} Mata Kuliah
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="actions-inline">
+                                        <a class="btn btn-sm" href="{{ route('admin.tahun-akademik.show', $academicYear) }}">
+                                            Detail
+                                        </a>
+
+                                        <a class="btn btn-sm" href="{{ route('admin.tahun-akademik.edit', $academicYear) }}">
+                                            Edit
+                                        </a>
+
+                                        @if($coursesCount === 0)
+                                            @include('partials.delete-button', [
+                                                'action' => route('admin.tahun-akademik.destroy', $academicYear),
+                                                'confirm' => 'Yakin ingin menghapus tahun akademik ini?'
+                                            ])
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+            {{ $academicYears->links() }}
+        </div>
+    @endif
+</section>
 @endsection

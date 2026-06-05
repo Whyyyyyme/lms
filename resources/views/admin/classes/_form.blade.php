@@ -1,4 +1,8 @@
 @php
+    $courses = $courses ?? collect();
+    $assistants = $assistants ?? collect();
+    $students = $students ?? collect();
+
     $classTypes = $classTypes ?? [
         'regular' => 'Reguler',
         'combined' => 'Gabungan',
@@ -12,6 +16,8 @@
 
     $selectedCourseId = old('course_id', $praktikumClass->course_id ?? '');
 
+    $selectedAssistantId = old('assistant_id', $praktikumClass->assistant_id ?? '');
+
     $selectedClassType = old('class_type', $praktikumClass->class_type ?? 'regular');
 
     $selectedStudentGroup = old('student_group', $praktikumClass->student_group ?? '');
@@ -21,14 +27,27 @@
     $selectedGroupMembers = collect(
         old('group_members', isset($praktikumClass) ? ($praktikumClass->group_members ?? []) : [])
     )->map(fn ($group) => (string) $group)->all();
+
+    $isActiveChecked = old(
+        'is_active',
+        isset($praktikumClass) ? (bool) $praktikumClass->is_active : true
+    );
 @endphp
 
-<div class="grid gap-5 md:grid-cols-2">
-    <label class="form-group" for="course_id">
-        <span class="form-label">Mata Kuliah <span class="required">*</span></span>
+<div class="form-grid">
+    <div class="form-group">
+        <label for="course_id" class="form-label">
+            Mata Kuliah <span class="required">*</span>
+        </label>
 
-        <select id="course_id" name="course_id" required class="form-control">
+        <select
+            id="course_id"
+            name="course_id"
+            class="form-control"
+            required
+        >
             <option value="">Pilih mata kuliah</option>
+
             @foreach ($courses as $course)
                 <option
                     value="{{ $course->id }}"
@@ -49,19 +68,36 @@
             @endforeach
         </select>
 
-        <small class="form-help">
+        <div class="form-help">
             Kelas akan mengikuti semester dari mata kuliah yang dipilih.
-        </small>
-    </label>
+        </div>
 
-    <label class="form-group" for="assistant_id">
-        <span class="form-label">Asisten Praktikum</span>
+        @error('course_id')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
 
-        <select id="assistant_id" name="assistant_id" class="form-control">
+    <div class="form-group">
+        <label for="assistant_id" class="form-label">
+            Asisten Praktikum
+        </label>
+
+        <select
+            id="assistant_id"
+            name="assistant_id"
+            class="form-control"
+        >
             <option value="">Belum ditentukan</option>
+
             @foreach ($assistants as $assistant)
-                <option value="{{ $assistant->id }}" @selected((string) old('assistant_id', $praktikumClass->assistant_id ?? '') === (string) $assistant->id)>
+                <option
+                    value="{{ $assistant->id }}"
+                    @selected((string) $selectedAssistantId === (string) $assistant->id)
+                >
                     {{ $assistant->name }}
+
                     @if($assistant->nim_nip)
                         - {{ $assistant->nim_nip }}
                     @endif
@@ -69,15 +105,28 @@
             @endforeach
         </select>
 
-        <small class="form-help">
+        <div class="form-help">
             Asisten dapat diganti kapan saja.
-        </small>
-    </label>
+        </div>
 
-    <label class="form-group" for="class_type">
-        <span class="form-label">Tipe Kelas <span class="required">*</span></span>
+        @error('assistant_id')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
 
-        <select id="class_type" name="class_type" required class="form-control">
+    <div class="form-group">
+        <label for="class_type" class="form-label">
+            Tipe Kelas <span class="required">*</span>
+        </label>
+
+        <select
+            id="class_type"
+            name="class_type"
+            class="form-control"
+            required
+        >
             @foreach ($classTypes as $value => $label)
                 <option value="{{ $value }}" @selected($selectedClassType === $value)>
                     {{ $label }}
@@ -85,153 +134,349 @@
             @endforeach
         </select>
 
-        <small class="form-help">
+        <div class="form-help">
             Pilih Reguler untuk kelas A-H, atau Gabungan untuk kelas seperti GAB A.
-        </small>
-    </label>
+        </div>
 
-    <div id="regular-group-wrapper">
-        <label class="form-group" for="student_group">
-            <span class="form-label">Rombel Reguler <span class="required">*</span></span>
-
-            <select id="student_group" name="student_group" class="form-control">
-                <option value="">Pilih rombel</option>
-                @foreach ($studentGroups as $group)
-                    <option value="{{ $group }}" @selected($selectedStudentGroup === $group)>
-                        Kelas {{ $group }}
-                    </option>
-                @endforeach
-            </select>
-
-            <small class="form-help">
-                Mahasiswa otomatis diambil dari semester mata kuliah dan rombel ini.
-            </small>
-        </label>
+        @error('class_type')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
     </div>
 
-    <div id="combined-label-wrapper">
-        <label class="form-group" for="group_label">
-            <span class="form-label">Label Kelas Gabungan <span class="required">*</span></span>
-
-            <input
-                id="group_label"
-                type="text"
-                name="group_label"
-                value="{{ $selectedGroupLabel }}"
-                class="form-control"
-                placeholder="Contoh: GAB A"
-            >
-
-            <small class="form-help">
-                Contoh: GAB A, GAB B, atau Gabungan 1.
-            </small>
+    <div class="form-group" id="regular-group-wrapper">
+        <label for="student_group" class="form-label">
+            Rombel Reguler <span class="required">*</span>
         </label>
+
+        <select
+            id="student_group"
+            name="student_group"
+            class="form-control"
+        >
+            <option value="">Pilih rombel</option>
+
+            @foreach ($studentGroups as $group)
+                <option value="{{ $group }}" @selected($selectedStudentGroup === $group)>
+                    Kelas {{ $group }}
+                </option>
+            @endforeach
+        </select>
+
+        <div class="form-help">
+            Mahasiswa otomatis diambil dari semester mata kuliah dan rombel ini.
+        </div>
+
+        @error('student_group')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
     </div>
 
-    @include('partials.form.input', [
-        'label' => 'Nama Kelas',
-        'name' => 'name',
-        'value' => $praktikumClass->name ?? null,
-        'placeholder' => 'Contoh: Kelas E atau GAB A',
-        'required' => true
-    ])
+    <div class="form-group" id="combined-label-wrapper">
+        <label for="group_label" class="form-label">
+            Label Kelas Gabungan <span class="required">*</span>
+        </label>
 
-    @include('partials.form.input', [
-        'label' => 'Ruangan',
-        'name' => 'room',
-        'value' => $praktikumClass->room ?? null,
-        'placeholder' => 'Contoh: Lab Komputer 1'
-    ])
+        <input
+            id="group_label"
+            type="text"
+            name="group_label"
+            value="{{ $selectedGroupLabel }}"
+            class="form-control"
+            placeholder="Contoh: GAB A"
+        >
 
-    <div class="md:col-span-2" id="combined-members-wrapper">
-        <p class="mb-2 text-sm font-semibold text-slate-700">
+        <div class="form-help">
+            Contoh: GAB A, GAB B, atau Gabungan 1.
+        </div>
+
+        @error('group_label')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group">
+        <label for="name" class="form-label">
+            Nama Kelas <span class="required">*</span>
+        </label>
+
+        <input
+            id="name"
+            type="text"
+            name="name"
+            class="form-control"
+            value="{{ old('name', $praktikumClass->name ?? null) }}"
+            placeholder="Contoh: Kelas E atau GAB A"
+            required
+        >
+
+        <div class="form-help">
+            Nama kelas akan otomatis terisi dari rombel, tetapi tetap bisa diedit manual.
+        </div>
+
+        @error('name')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group">
+        <label for="room" class="form-label">
+            Ruangan
+        </label>
+
+        <input
+            id="room"
+            type="text"
+            name="room"
+            class="form-control"
+            value="{{ old('room', $praktikumClass->room ?? null) }}"
+            placeholder="Contoh: Lab Komputer 1"
+        >
+
+        <div class="form-help">
+            Isi ruangan praktikum jika sudah tersedia.
+        </div>
+
+        @error('room')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+
+    <div class="form-group" style="grid-column: 1 / -1;" id="combined-members-wrapper">
+        <label class="form-label">
             Rombel yang Digabung <span class="required">*</span>
-        </p>
+        </label>
 
-        <p class="mb-3 text-xs text-slate-500">
+        <div class="form-help" style="margin-bottom: 10px;">
             Pilih rombel mahasiswa yang masuk ke kelas gabungan ini.
             Contoh: GAB A berisi kelas A, B, dan C.
-        </p>
+        </div>
 
-        <div class="grid gap-2 rounded-2xl border border-slate-200 p-4 sm:grid-cols-4">
+        <div
+            style="
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 10px;
+                padding: 14px;
+                border: 1px solid var(--line);
+                border-radius: 18px;
+                background: #f8fafc;
+            "
+        >
             @foreach ($studentGroups as $group)
-                <label class="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+                <label
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        padding: 10px 12px;
+                        border: 1px solid var(--line);
+                        border-radius: 14px;
+                        background: #ffffff;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 700;
+                        color: #334155;
+                    "
+                >
                     <input
                         type="checkbox"
                         name="group_members[]"
                         value="{{ $group }}"
                         @checked(in_array((string) $group, $selectedGroupMembers, true))
-                        class="group-member-checkbox rounded border-slate-300 text-indigo-600"
+                        class="group-member-checkbox"
+                        style="width: 16px; height: 16px;"
                     >
+
                     <span>Kelas {{ $group }}</span>
                 </label>
             @endforeach
         </div>
+
+        @error('group_members')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
     </div>
 
-    <div class="md:col-span-2">
-        @include('partials.form.input', [
-            'label' => 'Jadwal',
-            'name' => 'schedule',
-            'value' => $praktikumClass->schedule ?? null,
-            'placeholder' => 'Contoh: Senin, 10.00 - 12.00'
-        ])
+    <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="schedule" class="form-label">
+            Jadwal
+        </label>
+
+        <input
+            id="schedule"
+            type="text"
+            name="schedule"
+            class="form-control"
+            value="{{ old('schedule', $praktikumClass->schedule ?? null) }}"
+            placeholder="Contoh: Senin, 10.00 - 12.00"
+        >
+
+        <div class="form-help">
+            Isi jadwal praktikum. Format yang disarankan: hari, jam mulai - jam selesai.
+        </div>
+
+        @error('schedule')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
     </div>
-</div>
 
-<div class="mt-5">
-    @include('partials.form.checkbox', [
-        'label' => 'Kelas aktif',
-        'name' => 'is_active',
-        'checked' => $praktikumClass->is_active ?? true
-    ])
-</div>
+    <div class="form-group" style="grid-column: 1 / -1;">
+        <label class="form-label">
+            Status Kelas
+        </label>
 
-<div class="mt-6">
-    <p class="mb-2 text-sm font-semibold text-slate-700">
-        Mahasiswa Manual / Khusus
-    </p>
+        <input type="hidden" name="is_active" value="0">
 
-    <p class="mb-3 text-xs text-slate-500">
-        Opsional. Mahasiswa utama otomatis dihitung dari semester mata kuliah dan rombel kelas.
-        Checklist ini hanya dipakai untuk tambahan khusus.
-    </p>
-
-    <div id="students-wrapper" class="grid max-h-72 gap-2 overflow-y-auto rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-        @foreach ($students as $student)
-            <label
-                class="student-option flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm"
-                data-semester-id="{{ $student->study_semester_id }}"
-                data-student-group="{{ $student->student_group }}"
+        <label
+            style="
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                background: #f8fafc;
+                cursor: pointer;
+            "
+        >
+            <input
+                type="checkbox"
+                name="is_active"
+                value="1"
+                @checked($isActiveChecked)
+                style="width: 16px; height: 16px;"
             >
-                <input
-                    type="checkbox"
-                    name="student_ids[]"
-                    value="{{ $student->id }}"
-                    @checked(in_array((string) $student->id, $selectedStudents, true))
-                    class="rounded border-slate-300 text-indigo-600"
-                >
 
-                <span>
-                    {{ $student->name }}
-                    <span class="text-slate-400">
-                        (
+            <span style="font-weight: 800; color: #334155;">
+                Kelas aktif
+            </span>
+        </label>
+
+        <div class="form-help">
+            Kelas aktif dapat digunakan oleh asisten dan mahasiswa sesuai aturan akses.
+        </div>
+
+        @error('is_active')
+            <div class="form-help" style="color: var(--danger);">
+                {{ $message }}
+            </div>
+        @enderror
+    </div>
+</div>
+
+<section class="card" style="margin-top: 18px; box-shadow: none;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Mahasiswa Manual / Khusus</h2>
+            <div class="section-subtitle">
+                Opsional. Mahasiswa utama otomatis dihitung dari semester mata kuliah dan rombel kelas.
+                Checklist ini hanya dipakai untuk tambahan khusus.
+            </div>
+        </div>
+    </div>
+
+    @if($students->isEmpty())
+        <div class="empty-state">
+            <div style="font-size: 34px; margin-bottom: 8px;">🎓</div>
+
+            <h3 class="empty-state-title">
+                Belum ada mahasiswa
+            </h3>
+
+            <p class="empty-state-text">
+                Mahasiswa manual akan tampil setelah ada akun mahasiswa aktif di sistem.
+            </p>
+        </div>
+    @else
+        <div
+            id="students-wrapper"
+            style="
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+                max-height: 320px;
+                overflow-y: auto;
+                padding: 14px;
+                border: 1px solid var(--line);
+                border-radius: 18px;
+                background: #f8fafc;
+            "
+        >
+            @foreach ($students as $student)
+                <label
+                    class="student-option"
+                    data-semester-id="{{ $student->study_semester_id }}"
+                    data-student-group="{{ $student->student_group }}"
+                    style="
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 10px;
+                        padding: 10px 12px;
+                        border: 1px solid var(--line);
+                        border-radius: 14px;
+                        background: #ffffff;
+                        cursor: pointer;
+                        font-size: 14px;
+                        color: #334155;
+                    "
+                >
+                    <input
+                        type="checkbox"
+                        name="student_ids[]"
+                        value="{{ $student->id }}"
+                        @checked(in_array((string) $student->id, $selectedStudents, true))
+                        style="width: 16px; height: 16px; margin-top: 2px;"
+                    >
+
+                    <span>
+                        <strong>{{ $student->name }}</strong>
+
+                        <span class="item-meta" style="display: block; margin-top: 3px;">
                             {{ $student->nim_nip ?? '-' }}
                             •
                             {{ $student->studySemester?->name ?? 'Tanpa Semester' }}
                             •
                             Kelas {{ $student->student_group ?? '-' }}
-                        )
+                        </span>
                     </span>
-                </span>
-            </label>
-        @endforeach
-    </div>
+                </label>
+            @endforeach
+        </div>
 
-    <p id="student-filter-note" class="mt-3 text-xs text-slate-500">
-        Pilih mata kuliah terlebih dahulu agar daftar mahasiswa manual disesuaikan dengan semester mata kuliah.
-    </p>
+        <div id="student-filter-note" class="form-help" style="margin-top: 12px;">
+            Pilih mata kuliah terlebih dahulu agar daftar mahasiswa manual disesuaikan dengan semester mata kuliah.
+        </div>
+    @endif
+</section>
+
+<div class="alert" style="margin-top: 16px;">
+    <strong>Catatan:</strong>
+    Untuk kelas reguler, mahasiswa otomatis diambil dari semester mata kuliah dan rombel.
+    Untuk kelas gabungan, mahasiswa otomatis diambil dari semester mata kuliah dan rombel yang digabung.
 </div>
+
+<style>
+    @media (max-width: 900px) {
+        #combined-members-wrapper > div,
+        #students-wrapper {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -253,6 +498,10 @@
         let lastGeneratedName = '';
 
         function filterStudentsByCourseSemester() {
+            if (!courseSelect) {
+                return;
+            }
+
             const selectedOption = courseSelect.options[courseSelect.selectedIndex];
             const selectedSemesterId = selectedOption ? selectedOption.dataset.semesterId : '';
 
@@ -267,9 +516,16 @@
                     visibleCount++;
                 } else {
                     option.style.display = 'none';
-                    checkbox.checked = false;
+
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
                 }
             });
+
+            if (!note) {
+                return;
+            }
 
             if (!selectedSemesterId) {
                 note.textContent = 'Pilih mata kuliah terlebih dahulu agar daftar mahasiswa manual disesuaikan dengan semester mata kuliah.';
@@ -281,6 +537,10 @@
         }
 
         function setRequiredState() {
+            if (!classTypeSelect || !studentGroupSelect || !groupLabelInput) {
+                return;
+            }
+
             const type = classTypeSelect.value;
 
             if (type === 'combined') {
@@ -301,16 +561,36 @@
         }
 
         function toggleClassTypeFields() {
+            if (!classTypeSelect) {
+                return;
+            }
+
             const type = classTypeSelect.value;
 
             if (type === 'combined') {
-                regularGroupWrapper.style.display = 'none';
-                combinedLabelWrapper.style.display = '';
-                combinedMembersWrapper.style.display = '';
+                if (regularGroupWrapper) {
+                    regularGroupWrapper.style.display = 'none';
+                }
+
+                if (combinedLabelWrapper) {
+                    combinedLabelWrapper.style.display = '';
+                }
+
+                if (combinedMembersWrapper) {
+                    combinedMembersWrapper.style.display = '';
+                }
             } else {
-                regularGroupWrapper.style.display = '';
-                combinedLabelWrapper.style.display = 'none';
-                combinedMembersWrapper.style.display = 'none';
+                if (regularGroupWrapper) {
+                    regularGroupWrapper.style.display = '';
+                }
+
+                if (combinedLabelWrapper) {
+                    combinedLabelWrapper.style.display = 'none';
+                }
+
+                if (combinedMembersWrapper) {
+                    combinedMembersWrapper.style.display = 'none';
+                }
             }
 
             setRequiredState();
@@ -318,7 +598,7 @@
         }
 
         function maybeGenerateClassName() {
-            if (!nameInput) {
+            if (!nameInput || !classTypeSelect) {
                 return;
             }
 
@@ -332,13 +612,13 @@
             let generatedName = '';
 
             if (classTypeSelect.value === 'regular') {
-                const selectedGroup = studentGroupSelect.value;
+                const selectedGroup = studentGroupSelect ? studentGroupSelect.value : '';
 
                 if (selectedGroup) {
                     generatedName = 'Kelas ' + selectedGroup;
                 }
             } else {
-                const label = groupLabelInput.value.trim().toUpperCase();
+                const label = groupLabelInput ? groupLabelInput.value.trim().toUpperCase() : '';
 
                 if (label) {
                     generatedName = label;
@@ -352,7 +632,7 @@
         }
 
         function validateCombinedMembers(event) {
-            if (classTypeSelect.value !== 'combined') {
+            if (!classTypeSelect || classTypeSelect.value !== 'combined') {
                 return true;
             }
 
@@ -369,15 +649,27 @@
             return true;
         }
 
-        courseSelect.addEventListener('change', filterStudentsByCourseSemester);
-        classTypeSelect.addEventListener('change', toggleClassTypeFields);
-        studentGroupSelect.addEventListener('change', maybeGenerateClassName);
-        groupLabelInput.addEventListener('input', function () {
-            groupLabelInput.value = groupLabelInput.value.toUpperCase();
-            maybeGenerateClassName();
-        });
+        if (courseSelect) {
+            courseSelect.addEventListener('change', filterStudentsByCourseSemester);
+        }
 
-        const form = courseSelect.closest('form');
+        if (classTypeSelect) {
+            classTypeSelect.addEventListener('change', toggleClassTypeFields);
+        }
+
+        if (studentGroupSelect) {
+            studentGroupSelect.addEventListener('change', maybeGenerateClassName);
+        }
+
+        if (groupLabelInput) {
+            groupLabelInput.addEventListener('input', function () {
+                groupLabelInput.value = groupLabelInput.value.toUpperCase();
+                maybeGenerateClassName();
+            });
+        }
+
+        const form = courseSelect ? courseSelect.closest('form') : null;
+
         if (form) {
             form.addEventListener('submit', validateCombinedMembers);
         }

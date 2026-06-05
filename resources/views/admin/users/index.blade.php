@@ -3,47 +3,90 @@
 @section('title', 'Kelola Asisten & Mahasiswa')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Admin',
-    'title' => 'Kelola Asisten & Mahasiswa',
-    'description' => 'Tambah, edit, hapus, verifikasi, dan atur akun asisten praktikum serta mahasiswa. Akun admin utama dikelola manual.'
-])
+@php
+    use Illuminate\Support\Facades\Route;
 
-<div class="toolbar">
+    $users = $users ?? collect();
+    $studySemesters = $studySemesters ?? collect();
+
+    $dashboardUrl = Route::has('admin.dashboard')
+        ? route('admin.dashboard')
+        : '#';
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Admin</div>
+
+    <h1>Kelola Asisten & Mahasiswa</h1>
+
+    <p>
+        Tambah, edit, hapus, verifikasi, dan atur akun asisten praktikum serta mahasiswa.
+        Akun admin utama tetap dikelola manual.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+
+        <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
+            + Tambah Asisten / Mahasiswa
+        </a>
+    </div>
+</section>
+
+<section class="card" style="margin-bottom: 18px;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Filter User</h2>
+            <div class="section-subtitle">
+                Cari user berdasarkan nama, email, NIM/NIP, jenis akun, semester, atau status akun.
+            </div>
+        </div>
+    </div>
+
     <form method="GET" class="actions-inline">
         <input
             class="form-control"
-            style="width:260px;"
+            style="width: 260px;"
             type="search"
             name="search"
             value="{{ request('search') }}"
             placeholder="Cari nama/email/NIM"
         >
 
-        <select class="form-control" style="width:190px;" name="role">
+        <select class="form-control" style="width: 190px;" name="role">
             <option value="">Semua jenis akun</option>
+
             <option value="asisten" @selected(request('role') === 'asisten')>
                 Asisten Praktikum
             </option>
+
             <option value="mahasiswa" @selected(request('role') === 'mahasiswa')>
                 Mahasiswa
             </option>
         </select>
 
-        <select class="form-control" style="width:190px;" name="study_semester_id">
+        <select class="form-control" style="width: 190px;" name="study_semester_id">
             <option value="">Semua semester</option>
+
             @foreach($studySemesters as $semester)
-                <option value="{{ $semester->id }}" @selected((string) request('study_semester_id') === (string) $semester->id)>
+                <option
+                    value="{{ $semester->id }}"
+                    @selected((string) request('study_semester_id') === (string) $semester->id)
+                >
                     {{ $semester->name }}
                 </option>
             @endforeach
         </select>
 
-        <select class="form-control" style="width:190px;" name="status">
+        <select class="form-control" style="width: 190px;" name="status">
             <option value="">Semua status</option>
+
             <option value="active" @selected(request('status') === 'active')>
                 Aktif
             </option>
+
             <option value="pending" @selected(request('status') === 'pending')>
                 Pending / Nonaktif
             </option>
@@ -59,123 +102,167 @@
             </a>
         @endif
     </form>
+</section>
 
-    <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
-        + Tambah Asisten / Mahasiswa
-    </a>
-</div>
+<section class="card">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Daftar Asisten & Mahasiswa</h2>
+            <div class="section-subtitle">
+                User yang tampil di sini adalah akun asisten praktikum dan mahasiswa.
+            </div>
+        </div>
 
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Nama</th>
-                <th>Email</th>
-                <th>Jenis Akun</th>
-                <th>Semester / Rombel</th>
-                <th>Status</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
+        <a href="{{ route('admin.users.create') }}" class="btn btn-primary btn-sm">
+            + Tambah User
+        </a>
+    </div>
 
-        <tbody>
-            @forelse($users as $user)
-                @php
-                    $currentRole = $user->roles->pluck('name')->first() ?: $user->role;
+    @if($users->isEmpty())
+        <div class="empty-state">
+            <div style="font-size: 34px; margin-bottom: 8px;">👥</div>
 
-                    $roleLabel = match ($currentRole) {
-                        'asisten' => 'Asisten Praktikum',
-                        'mahasiswa' => 'Mahasiswa',
-                        default => ucfirst($currentRole ?? '-'),
-                    };
+            <h3 class="empty-state-title">
+                Belum ada asisten atau mahasiswa
+            </h3>
 
-                    $isStudent = $currentRole === 'mahasiswa';
-                    $isPendingStudent = $isStudent && ! $user->is_active;
-                @endphp
+            <p class="empty-state-text">
+                Data user akan tampil setelah admin menambahkan akun asisten atau mahasiswa.
+            </p>
+        </div>
+    @else
+        <div class="table-card">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Email</th>
+                            <th>Jenis Akun</th>
+                            <th>Semester / Rombel</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
 
-                <tr>
-                    <td>
-                        <strong>{{ $user->name }}</strong>
-                        <br>
-                        <small>{{ $user->nim_nip ?? '-' }}</small>
-                    </td>
+                    <tbody>
+                        @foreach($users as $user)
+                            @php
+                                $currentRole = $user->roles->pluck('name')->first() ?: $user->role;
 
-                    <td>
-                        {{ $user->email }}
-                    </td>
+                                $roleLabel = match ($currentRole) {
+                                    'asisten' => 'Asisten Praktikum',
+                                    'mahasiswa' => 'Mahasiswa',
+                                    default => ucfirst($currentRole ?? '-'),
+                                };
 
-                    <td>
-                        <span class="badge badge-blue">
-                            {{ $roleLabel }}
-                        </span>
-                    </td>
+                                $roleClass = match ($currentRole) {
+                                    'asisten' => 'status-info',
+                                    'mahasiswa' => 'status-success',
+                                    default => 'status-muted',
+                                };
 
-                    <td>
-                        @if($isStudent)
-                            {{ $user->studySemester?->name ?? '-' }}
+                                $isStudent = $currentRole === 'mahasiswa';
+                                $isPendingStudent = $isStudent && ! $user->is_active;
+                            @endphp
 
-                            @if($user->student_group)
-                                <br>
-                                <small>Kelas/Rombel {{ strtoupper($user->student_group) }}</small>
-                            @endif
-                        @else
-                            -
-                        @endif
-                    </td>
+                            <tr>
+                                <td>
+                                    <div style="display: grid; gap: 5px;">
+                                        <strong>
+                                            {{ $user->name }}
+                                        </strong>
 
-                    <td>
-                        @if($isPendingStudent)
-                            <span class="badge badge-red">
-                                Pending Verifikasi
-                            </span>
-                        @else
-                            <span class="badge {{ $user->is_active ? 'badge-green' : 'badge-red' }}">
-                                {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
-                            </span>
-                        @endif
-                    </td>
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $user->nim_nip ?? '-' }}
+                                        </span>
+                                    </div>
+                                </td>
 
-                    <td class="actions-inline">
-                        @if($isPendingStudent)
-                            <form
-                                method="POST"
-                                action="{{ route('admin.users.verify', $user) }}"
-                                onsubmit="return confirm('Verifikasi akun mahasiswa ini? Email aktivasi akan dikirim ke mahasiswa.')"
-                            >
-                                @csrf
-                                @method('PATCH')
+                                <td>
+                                    <span class="item-meta" style="margin-top: 0;">
+                                        {{ $user->email }}
+                                    </span>
+                                </td>
 
-                                <button type="submit" class="btn btn-sm btn-primary">
-                                    Verifikasi
-                                </button>
-                            </form>
-                        @endif
+                                <td>
+                                    <span class="status-pill {{ $roleClass }}">
+                                        {{ $roleLabel }}
+                                    </span>
+                                </td>
 
-                        <a class="btn btn-sm" href="{{ route('admin.users.show', $user) }}">
-                            Detail
-                        </a>
+                                <td>
+                                    @if($isStudent)
+                                        <div style="display: grid; gap: 5px;">
+                                            <strong>
+                                                {{ $user->studySemester?->name ?? '-' }}
+                                            </strong>
 
-                        <a class="btn btn-sm" href="{{ route('admin.users.edit', $user) }}">
-                            Edit
-                        </a>
+                                            @if($user->student_group)
+                                                <span class="item-meta" style="margin-top: 0;">
+                                                    Kelas/Rombel {{ strtoupper($user->student_group) }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            -
+                                        </span>
+                                    @endif
+                                </td>
 
-                        @include('partials.delete-button', [
-                            'action' => route('admin.users.destroy', $user)
-                        ])
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6">
-                        Belum ada asisten atau mahasiswa.
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
+                                <td>
+                                    @if($isPendingStudent)
+                                        <span class="status-pill status-danger">
+                                            Pending Verifikasi
+                                        </span>
+                                    @else
+                                        <span class="status-pill {{ $user->is_active ? 'status-success' : 'status-danger' }}">
+                                            {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </span>
+                                    @endif
+                                </td>
 
-<div style="margin-top:16px;">
-    {{ $users->links() }}
-</div>
+                                <td>
+                                    <div class="actions-inline">
+                                        @if($isPendingStudent && Route::has('admin.users.verify'))
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.users.verify', $user) }}"
+                                                onsubmit="return confirm('Verifikasi akun mahasiswa ini? Email aktivasi akan dikirim ke mahasiswa.')"
+                                            >
+                                                @csrf
+                                                @method('PATCH')
+
+                                                <button type="submit" class="btn btn-sm btn-primary">
+                                                    Verifikasi
+                                                </button>
+                                            </form>
+                                        @endif
+
+                                        <a class="btn btn-sm" href="{{ route('admin.users.show', $user) }}">
+                                            Detail
+                                        </a>
+
+                                        <a class="btn btn-sm" href="{{ route('admin.users.edit', $user) }}">
+                                            Edit
+                                        </a>
+
+                                        @include('partials.delete-button', [
+                                            'action' => route('admin.users.destroy', $user)
+                                        ])
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+            {{ $users->links() }}
+        </div>
+    @endif
+</section>
 @endsection

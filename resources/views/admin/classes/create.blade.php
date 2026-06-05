@@ -3,26 +3,73 @@
 @section('title', 'Tambah Kelas Praktikum')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Admin',
-    'title' => 'Tambah Kelas Praktikum',
-    'description' => 'Buat kelas praktikum untuk mata kuliah tertentu dan hubungkan dengan asisten.'
-])
+@php
+    use Illuminate\Support\Facades\Route;
 
-@if(($courses ?? collect())->isEmpty())
-    <div class="alert alert-error">
+    $courses = $courses ?? collect();
+
+    $cancelUrl = Route::has('admin.kelas.index')
+        ? route('admin.kelas.index')
+        : (Route::has('admin.dashboard') ? route('admin.dashboard') : '#');
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Admin</div>
+
+    <h1>Tambah Kelas Praktikum</h1>
+
+    <p>
+        Buat kelas praktikum untuk mata kuliah tertentu, atur tipe kelas, rombel,
+        jadwal, ruangan, dan hubungkan dengan asisten praktikum.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $cancelUrl }}" class="btn">
+            ← Kembali
+        </a>
+
+        @if(Route::has('admin.kelas.index'))
+            <a href="{{ route('admin.kelas.index') }}" class="btn btn-primary">
+                🏫 Semua Kelas
+            </a>
+        @endif
+    </div>
+</section>
+
+@if($courses->isEmpty())
+    <div class="alert alert-error" style="margin-bottom: 18px;">
         Buat mata kuliah terlebih dahulu sebelum membuat kelas praktikum.
     </div>
 @endif
 
-<form action="{{ route('admin.kelas.store') }}" method="POST" class="form-card">
-    @csrf
+<section class="card">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Form Kelas Praktikum</h2>
+            <div class="section-subtitle">
+                Isi data kelas, pilih mata kuliah, asisten, tipe kelas, rombel, ruang, jadwal, dan status kelas.
+            </div>
+        </div>
+    </div>
 
-    @include('admin.classes._form')
+    <form action="{{ route('admin.kelas.store') }}" method="POST" class="form-card">
+        @csrf
 
-    @include('partials.form.actions', [
-        'cancel' => route('admin.kelas.index'),
-        'label' => 'Simpan Kelas'
-    ])
-</form>
+        @include('admin.classes._form')
+
+        <div class="form-actions">
+            <a href="{{ $cancelUrl }}" class="btn">
+                Batal
+            </a>
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+                @disabled($courses->isEmpty())
+            >
+                Simpan Kelas
+            </button>
+        </div>
+    </form>
+</section>
 @endsection
