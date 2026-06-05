@@ -1169,6 +1169,66 @@
                 padding: 11px 12px;
             }
         }
+
+        .sidebar-link {
+            color: rgba(148, 163, 184, 0.78);
+        }
+
+        .sidebar-link .sidebar-icon {
+            color: rgba(148, 163, 184, 0.72);
+        }
+
+        .sidebar-icon {
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-icon svg {
+            width: 21px;
+            height: 21px;
+            display: block;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .sidebar-link:hover {
+            color: #e2e8f0;
+            background: rgba(148, 163, 184, 0.08);
+        }
+
+        .sidebar-link:hover .sidebar-icon {
+            color: #cbd5e1;
+        }
+
+        .sidebar-link.active {
+            color: #ffffff;
+            background: rgba(59, 130, 246, 0.14);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .sidebar-link.active .sidebar-icon {
+            color: #3b82f6;
+        }
+
+        .sidebar-logout .sidebar-icon {
+            color: rgba(248, 113, 113, 0.75);
+        }
+
+        .sidebar-logout:hover {
+            color: #fecaca;
+            background: rgba(239, 68, 68, 0.10);
+        }
+
+        .sidebar-logout:hover .sidebar-icon {
+            color: #f87171;
+        }
     </style>
 </head>
 <body>
