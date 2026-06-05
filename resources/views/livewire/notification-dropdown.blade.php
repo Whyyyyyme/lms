@@ -46,12 +46,13 @@
                                 </p>
 
                                 @php
-                                    $data = is_array($notification->data) ? $notification->data : [];
+                                    $courseCode = $data['course_code'] ?? null;
+                                    $courseName = $data['course_name'] ?? null;
                                 @endphp
 
-                                @if (!empty($data['course_name']))
+                                @if (!empty($courseName))
                                     <p class="mt-1 text-[11px] font-bold text-indigo-600">
-                                        {{ $data['course_code'] ? $data['course_code'] . ' - ' : '' }}{{ $data['course_name'] }}
+                                        {{ !empty($courseCode) ? $courseCode . ' - ' : '' }}{{ $courseName }}
                                     </p>
                                 @endif
 
