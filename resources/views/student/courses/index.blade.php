@@ -1,186 +1,347 @@
-@extends('layouts.app', ['title' => 'Mata Kuliah Saya'])
+@extends('layouts.app')
 
 @section('title', 'Mata Kuliah Saya')
 @section('page_title', 'Mata Kuliah Saya')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Mahasiswa',
-    'title' => 'Mata Kuliah Saya',
-    'description' => 'Pilih mata kuliah atau kelas praktikum terlebih dahulu, lalu masuk ke materi, tugas, absensi, pengumuman, dan nilai kelas tersebut.',
-])
+@php
+    use Illuminate\Support\Facades\Route;
+    use Carbon\Carbon;
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-    @include('partials.stat-card', ['label' => 'Kelas Aktif', 'value' => $statistics['total_classes'] ?? 0, 'icon' => '📚'])
-    @include('partials.stat-card', ['label' => 'Materi', 'value' => $statistics['total_materials'] ?? 0, 'icon' => '📘'])
-    @include('partials.stat-card', ['label' => 'Tugas', 'value' => $statistics['total_assignments'] ?? 0, 'icon' => '📝'])
-    @include('partials.stat-card', ['label' => 'Belum Submit', 'value' => $statistics['pending_assignments'] ?? 0, 'icon' => '⏳'])
-    @include('partials.stat-card', ['label' => 'Absensi Buka', 'value' => $statistics['open_attendances'] ?? 0, 'icon' => '✅'])
+    $statistics = $statistics ?? [];
+    $classes = $classes ?? collect();
+    $upcomingAssignments = $upcomingAssignments ?? collect();
+    $openAttendances = $openAttendances ?? collect();
+
+    $timezone = config('app.timezone', 'Asia/Jakarta');
+
+    $dashboardUrl = Route::has('student.dashboard')
+        ? route('student.dashboard')
+        : '#';
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Mahasiswa</div>
+
+    <h1>Mata Kuliah Saya</h1>
+
+    <p>
+        Pilih mata kuliah atau kelas praktikum terlebih dahulu.
+        Setelah masuk ke kelas, kamu bisa mengakses materi, tugas, absensi, pengumuman, dan nilai kelas tersebut.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+
+        @if(Route::has('student.schedule.index'))
+            <a href="{{ route('student.schedule.index') }}" class="btn btn-primary">
+                🗓️ Jadwal Praktikum
+            </a>
+        @endif
+    </div>
+</section>
+
+<div class="grid grid-5" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Kelas Aktif</div>
+        <div class="stat-value">{{ $statistics['total_classes'] ?? 0 }}</div>
+        <div class="stat-note">Kelas praktikum yang sedang kamu ikuti.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Materi</div>
+        <div class="stat-value">{{ $statistics['total_materials'] ?? 0 }}</div>
+        <div class="stat-note">Materi yang sudah dipublikasikan.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Tugas</div>
+        <div class="stat-value">{{ $statistics['total_assignments'] ?? 0 }}</div>
+        <div class="stat-note">Tugas praktikum dari kelas kamu.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Belum Submit</div>
+        <div class="stat-value">{{ $statistics['pending_assignments'] ?? 0 }}</div>
+        <div class="stat-note">Tugas yang belum kamu kumpulkan.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Absensi Buka</div>
+        <div class="stat-value">{{ $statistics['open_attendances'] ?? 0 }}</div>
+        <div class="stat-note">Sesi absensi yang masih tersedia.</div>
+    </div>
 </div>
 
-<div class="grid gap-6 xl:grid-cols-3">
-    <section class="xl:col-span-2">
-        <div class="mb-4 flex items-center justify-between gap-3">
+<div class="grid grid-3">
+    <section class="card" style="grid-column: span 2;">
+        <div class="section-header">
             <div>
-                <h2 class="text-xl font-black text-slate-950">Daftar Mata Kuliah / Kelas</h2>
-                <p class="mt-1 text-sm text-slate-500">Data diambil dari semester dan rombel mahasiswa yang sedang login.</p>
+                <h2 class="section-title">Daftar Mata Kuliah / Kelas</h2>
+                <div class="section-subtitle">
+                    Data diambil dari semester dan rombel mahasiswa yang sedang login.
+                </div>
             </div>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2">
-            @forelse($classes as $class)
-                @php
-                    $course = $class->course;
-                    $nextAssignment = $class->next_assignment ?? null;
-                    $averageScore = $class->average_score;
-                @endphp
+        @if($classes->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">📚</div>
 
-                <a href="{{ route('student.courses.show', $class) }}"
-                   class="rounded-3xl border bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-md">
-                    <div class="flex items-start justify-between gap-3">
+                <h3 class="empty-state-title">
+                    Belum ada mata kuliah
+                </h3>
+
+                <p class="empty-state-text">
+                    Mata kuliah akan muncul jika akun mahasiswa sudah memiliki semester dan rombel yang sesuai dengan kelas praktikum aktif.
+                </p>
+            </div>
+        @else
+            <div class="course-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                @foreach($classes as $class)
+                    @php
+                        $course = $class->course;
+                        $nextAssignment = $class->next_assignment ?? null;
+                        $averageScore = $class->average_score;
+                        $latestMaterialAt = $class->latest_material_at ?? null;
+                        $openAttendanceCount = $class->open_attendances_count ?? 0;
+                    @endphp
+
+                    <a href="{{ route('student.courses.show', $class) }}" class="course-card">
                         <div>
-                            <span class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
-                                {{ $course?->code ?? 'Mata Kuliah' }}
-                            </span>
+                            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                                <span class="course-code">
+                                    {{ $course?->code ?? 'Mata Kuliah' }}
+                                </span>
 
-                            <h3 class="mt-4 text-lg font-black text-slate-950">
+                                @if($openAttendanceCount > 0)
+                                    <span class="status-pill status-success">
+                                        Absensi Buka
+                                    </span>
+                                @endif
+                            </div>
+
+                            <h3 class="course-title">
                                 {{ $course?->name ?? 'Mata kuliah tidak ditemukan' }}
                             </h3>
 
-                            <p class="mt-1 text-sm text-slate-500">
+                            <div class="course-meta">
                                 {{ $class->name }}
+
                                 @if($class->room)
                                     · Ruang {{ $class->room }}
                                 @endif
-                            </p>
+
+                                @if($course?->studySemester)
+                                    <br>
+                                    Semester {{ $course->studySemester->name }}
+                                @endif
+
+                                @if($course?->academicYear)
+                                    <br>
+                                    Tahun Akademik {{ $course->academicYear->name }}
+                                @endif
+
+                                @if($class->assistant)
+                                    <br>
+                                    Asisten {{ $class->assistant->name }}
+                                @endif
+
+                                @if($class->schedule)
+                                    <br>
+                                    Jadwal {{ $class->schedule }}
+                                @endif
+                            </div>
+
+                            <div class="metric-row">
+                                <span class="metric-pill">
+                                    📘 {{ $class->published_materials_count ?? 0 }} Materi
+                                </span>
+
+                                <span class="metric-pill">
+                                    📝 {{ $class->published_assignments_count ?? 0 }} Tugas
+                                </span>
+
+                                <span class="metric-pill">
+                                    ⭐ {{ $averageScore !== null ? number_format((float) $averageScore, 1) : '-' }} Nilai
+                                </span>
+                            </div>
+
+                            @if($nextAssignment)
+                                <div
+                                    style="
+                                        margin-top: 14px;
+                                        padding: 13px;
+                                        border-radius: 16px;
+                                        background: var(--warning-soft);
+                                        border: 1px solid #fde68a;
+                                    "
+                                >
+                                    <div style="font-size: 12px; font-weight: 900; color: #92400e; text-transform: uppercase; letter-spacing: 0.06em;">
+                                        Tugas berikutnya
+                                    </div>
+
+                                    <div style="margin-top: 5px; font-weight: 900; color: #0f172a;">
+                                        {{ $nextAssignment->title }}
+                                    </div>
+
+                                    <div class="item-meta">
+                                        Deadline:
+                                        {{ $nextAssignment->deadline ? $nextAssignment->deadline->timezone($timezone)->format('d M Y H:i').' WIB' : '-' }}
+                                    </div>
+                                </div>
+                            @elseif($latestMaterialAt)
+                                <div class="item-meta" style="margin-top: 14px;">
+                                    Materi terakhir:
+                                    {{ Carbon::parse($latestMaterialAt)->timezone($timezone)->format('d M Y H:i') }} WIB
+                                </div>
+                            @endif
                         </div>
 
-                        @if(($class->open_attendances_count ?? 0) > 0)
-                            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                                Absensi Buka
+                        <div class="course-footer">
+                            <span class="status-pill status-info">
+                                Masuk kelas
                             </span>
-                        @endif
-                    </div>
 
-                    <div class="mt-4 grid grid-cols-3 gap-2 text-center">
-                        <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="text-lg font-black text-slate-950">{{ $class->published_materials_count ?? 0 }}</p>
-                            <p class="text-[11px] font-semibold uppercase text-slate-500">Materi</p>
+                            <span style="font-weight: 900; color: var(--primary);">
+                                →
+                            </span>
                         </div>
-                        <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="text-lg font-black text-slate-950">{{ $class->published_assignments_count ?? 0 }}</p>
-                            <p class="text-[11px] font-semibold uppercase text-slate-500">Tugas</p>
-                        </div>
-                        <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="text-lg font-black text-slate-950">{{ $averageScore !== null ? number_format((float) $averageScore, 1) : '-' }}</p>
-                            <p class="text-[11px] font-semibold uppercase text-slate-500">Nilai</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 space-y-1 text-sm text-slate-500">
-                        @if($course?->studySemester)
-                            <p>Semester: {{ $course->studySemester->name }}</p>
-                        @endif
-
-                        @if($course?->academicYear)
-                            <p>Tahun akademik: {{ $course->academicYear->name }}</p>
-                        @endif
-
-                        @if($class->assistant)
-                            <p>Asisten: {{ $class->assistant->name }}</p>
-                        @endif
-
-                        @if($class->schedule)
-                            <p>Jadwal: {{ $class->schedule }}</p>
-                        @endif
-                    </div>
-
-                    @if($nextAssignment)
-                        <div class="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3">
-                            <p class="text-xs font-bold uppercase text-amber-700">Tugas berikutnya</p>
-                            <p class="mt-1 font-bold text-slate-950">{{ $nextAssignment->title }}</p>
-                            <p class="mt-1 text-xs text-slate-500">
-                                Deadline: {{ $nextAssignment->deadline?->format('d M Y H:i') ?? '-' }}
-                            </p>
-                        </div>
-                    @elseif(($class->latest_material_at ?? null))
-                        <p class="mt-4 text-xs text-slate-400">
-                            Materi terakhir: {{ \Carbon\Carbon::parse($class->latest_material_at)->format('d M Y H:i') }}
-                        </p>
-                    @endif
-
-                    <p class="mt-4 text-sm font-bold text-indigo-600">Masuk kelas →</p>
-                </a>
-            @empty
-                <div class="md:col-span-2">
-                    @include('partials.empty-state', [
-                        'title' => 'Belum ada mata kuliah',
-                        'description' => 'Mata kuliah akan muncul jika akun mahasiswa sudah memiliki semester dan rombel yang sesuai dengan kelas praktikum aktif.',
-                        'icon' => '📚',
-                    ])
-                </div>
-            @endforelse
-        </div>
+                    </a>
+                @endforeach
+            </div>
+        @endif
     </section>
 
-    <aside class="space-y-6">
-        <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 class="text-lg font-black text-slate-950">Deadline Terdekat</h3>
+    <aside style="display: grid; gap: 18px; align-content: start;">
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Deadline Terdekat</h2>
+                    <div class="section-subtitle">
+                        Tugas yang perlu segera diperhatikan.
+                    </div>
+                </div>
+            </div>
 
-            <div class="mt-4 space-y-3">
-                @forelse($upcomingAssignments as $assignment)
-                    @php
-                        $submitted = $assignment->relationLoaded('submissions') && $assignment->submissions->isNotEmpty();
-                    @endphp
-                    <a href="{{ route('student.assignments.show', $assignment) }}"
-                       class="block rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-indigo-50">
-                        <div class="flex items-start justify-between gap-3">
+            @if($upcomingAssignments->isEmpty())
+                <div class="empty-state">
+                    <div style="font-size: 30px; margin-bottom: 8px;">📝</div>
+
+                    <h3 class="empty-state-title">
+                        Belum ada deadline
+                    </h3>
+
+                    <p class="empty-state-text">
+                        Belum ada deadline tugas terdekat.
+                    </p>
+                </div>
+            @else
+                <div class="list-stack">
+                    @foreach($upcomingAssignments as $assignment)
+                        @php
+                            $submitted = $assignment->relationLoaded('submissions')
+                                && $assignment->submissions->isNotEmpty();
+                        @endphp
+
+                        <a href="{{ route('student.assignments.show', $assignment) }}" class="list-item">
                             <div>
-                                <p class="font-bold text-slate-950">{{ $assignment->title }}</p>
-                                <p class="mt-1 text-sm text-slate-500">{{ $assignment->kelas?->course?->name ?? 'Mata Kuliah' }}</p>
+                                <h3 class="item-title">
+                                    {{ $assignment->title }}
+                                </h3>
+
+                                <div class="item-meta">
+                                    {{ $assignment->kelas?->course?->name ?? 'Mata Kuliah' }}
+                                    <br>
+                                    {{ $assignment->deadline ? $assignment->deadline->timezone($timezone)->format('d M Y H:i').' WIB' : '-' }}
+                                </div>
                             </div>
-                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $submitted ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
+
+                            <span class="status-pill {{ $submitted ? 'status-success' : 'status-danger' }}">
                                 {{ $submitted ? 'Sudah' : 'Belum' }}
                             </span>
-                        </div>
-                        <p class="mt-2 text-xs text-slate-500">{{ $assignment->deadline?->format('d M Y H:i') ?? '-' }}</p>
-                    </a>
-                @empty
-                    <p class="text-sm text-slate-500">Belum ada deadline tugas terdekat.</p>
-                @endforelse
-            </div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
         </section>
 
-        <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 class="text-lg font-black text-slate-950">Absensi Sedang Dibuka</h3>
-
-            <div class="mt-4 space-y-3">
-                @forelse($openAttendances as $attendance)
-                    @php
-                        $record = $attendance->records->first();
-                        $alreadyPresent = $record?->status === 'hadir';
-                    @endphp
-
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="font-bold text-slate-950">{{ $attendance->kelas?->course?->name ?? 'Mata Kuliah' }}</p>
-                        <p class="mt-1 text-sm text-slate-500">Ditutup: {{ $attendance->closed_at?->format('d M Y H:i') ?? '-' }}</p>
-
-                        @if($alreadyPresent)
-                            <span class="mt-3 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                                Sudah check-in
-                            </span>
-                        @else
-                            <form action="{{ route('student.attendances.check-in', $attendance) }}" method="POST" class="mt-3">
-                                @csrf
-                                <button type="submit" class="btn btn-primary btn-sm">Check-in</button>
-                            </form>
-                        @endif
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Absensi Sedang Dibuka</h2>
+                    <div class="section-subtitle">
+                        Check-in absensi yang masih tersedia.
                     </div>
-                @empty
-                    <p class="text-sm text-slate-500">Tidak ada absensi yang sedang dibuka.</p>
-                @endforelse
+                </div>
             </div>
+
+            @if($openAttendances->isEmpty())
+                <div class="empty-state">
+                    <div style="font-size: 30px; margin-bottom: 8px;">✅</div>
+
+                    <h3 class="empty-state-title">
+                        Tidak ada absensi
+                    </h3>
+
+                    <p class="empty-state-text">
+                        Tidak ada absensi yang sedang dibuka.
+                    </p>
+                </div>
+            @else
+                <div class="list-stack">
+                    @foreach($openAttendances as $attendance)
+                        @php
+                            $record = $attendance->records->first();
+                            $alreadyPresent = $record?->status === 'hadir';
+                        @endphp
+
+                        <div class="list-item">
+                            <div>
+                                <h3 class="item-title">
+                                    {{ $attendance->kelas?->course?->name ?? 'Mata Kuliah' }}
+                                </h3>
+
+                                <div class="item-meta">
+                                    Ditutup:
+                                    {{ $attendance->closed_at ? $attendance->closed_at->timezone($timezone)->format('d M Y H:i').' WIB' : '-' }}
+                                </div>
+
+                                <div style="margin-top: 10px;">
+                                    @if($alreadyPresent)
+                                        <span class="status-pill status-success">
+                                            Sudah check-in
+                                        </span>
+                                    @else
+                                        <form action="{{ route('student.attendances.check-in', $attendance) }}" method="POST">
+                                            @csrf
+
+                                            <button type="submit" class="btn btn-primary btn-sm">
+                                                Check-in
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </section>
     </aside>
 </div>
+
+<style>
+    @media (max-width: 1100px) {
+        .grid.grid-3 > section[style*="grid-column"] {
+            grid-column: span 1 !important;
+        }
+
+        .course-grid[style*="repeat(2"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
 @endsection

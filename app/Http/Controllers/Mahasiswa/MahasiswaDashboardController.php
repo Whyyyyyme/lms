@@ -17,13 +17,24 @@ class MahasiswaDashboardController extends Controller
 
     public function index(): View
     {
+        $studentId = (int) auth()->id();
         $classIds = $this->studentClassIds();
 
         $classes = $this->studentClasses()
-            ->load(['course.studySemester', 'course.academicYear', 'assistant']);
+            ->load([
+                'course.studySemester',
+                'course.academicYear',
+                'assistant',
+            ]);
 
         $statistics = [
             'total_kelas' => count($classIds),
+
+            'total_mata_kuliah' => $classes
+                ->pluck('course_id')
+                ->filter()
+                ->unique()
+                ->count(),
 
             'total_materi' => Material::published()
                 ->whereIn('class_id', $classIds)
@@ -35,12 +46,12 @@ class MahasiswaDashboardController extends Controller
 
             'tugas_belum_dikumpulkan' => Assignment::published()
                 ->whereIn('class_id', $classIds)
-                ->whereDoesntHave('submissions', function ($query) {
-                    $query->where('student_id', auth()->id());
+                ->whereDoesntHave('submissions', function ($query) use ($studentId) {
+                    $query->where('student_id', $studentId);
                 })
                 ->count(),
 
-            'total_nilai' => Submission::where('student_id', auth()->id())
+            'total_nilai' => Submission::where('student_id', $studentId)
                 ->whereNotNull('graded_at')
                 ->whereHas('assignment', function ($query) use ($classIds) {
                     $query->published()
@@ -56,7 +67,7 @@ class MahasiswaDashboardController extends Controller
                 ->count(),
         ];
 
-        $this->attachClassCardData($classes);
+        $this->attachClassCardData($classes, $studentId);
 
         $latestMaterials = Material::with('kelas.course')
             ->published()
@@ -67,8 +78,8 @@ class MahasiswaDashboardController extends Controller
 
         $upcomingAssignments = Assignment::with([
                 'kelas.course',
-                'submissions' => function ($query) {
-                    $query->where('student_id', auth()->id());
+                'submissions' => function ($query) use ($studentId) {
+                    $query->where('student_id', $studentId);
                 },
             ])
             ->published()
@@ -93,14 +104,16 @@ class MahasiswaDashboardController extends Controller
         ));
     }
 
-    private function attachClassCardData($classes): void
+    private function attachClassCardData($classes, int $studentId): void
     {
         if ($classes->isEmpty()) {
             return;
         }
 
-        $classIds = $classes->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $studentId = (int) auth()->id();
+        $classIds = $classes
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         $materialCounts = Material::query()
             ->published()
@@ -119,7 +132,9 @@ class MahasiswaDashboardController extends Controller
         $pendingCounts = Assignment::query()
             ->published()
             ->whereIn('class_id', $classIds)
-            ->whereDoesntHave('submissions', fn ($query) => $query->where('student_id', $studentId))
+            ->whereDoesntHave('submissions', function ($query) use ($studentId) {
+                $query->where('student_id', $studentId);
+            })
             ->selectRaw('class_id, COUNT(*) as total')
             ->groupBy('class_id')
             ->pluck('total', 'class_id');

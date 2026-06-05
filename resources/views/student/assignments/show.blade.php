@@ -1,5 +1,263 @@
-@extends('layouts.app', ['title' => 'Detail Tugas'])
+@extends('layouts.app')
+
+@section('title', 'Detail Tugas')
+
 @section('content')
-@include('partials.page-header', ['eyebrow' => 'Mahasiswa', 'title' => $assignment->title, 'description' => 'Deadline '.$assignment->deadline?->format('d M Y H:i')])
-<div class="grid gap-6 lg:grid-cols-3"><section class="rounded-3xl border bg-white p-6 shadow-sm lg:col-span-2"><p class="whitespace-pre-line text-slate-700">{{ $assignment->description }}</p>@if($assignment->file_path)<a href="{{ asset('storage/'.$assignment->file_path) }}" target="_blank" class="mt-5 inline-flex rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Buka File Tugas</a>@endif</section><aside class="rounded-3xl border bg-white p-6 shadow-sm"><h2 class="font-bold">Submission Saya</h2>@if($submission)<p class="mt-3 text-sm text-slate-600">Dikumpulkan: {{ $submission->submitted_at?->format('d M Y H:i') }}</p><p class="mt-1 text-sm text-slate-600">Nilai: <strong>{{ $submission->score ?? 'Belum dinilai' }}</strong></p>@if($submission->feedback)<p class="mt-3 rounded-2xl bg-slate-50 p-3 text-sm">{{ $submission->feedback }}</p>@endif @endif<form action="{{ $submission ? route('student.submissions.update', $submission) : route('student.assignments.submit', $assignment) }}" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">@csrf @if($submission) @method('PUT') @endif @include('partials.form.input', ['label' => $submission ? 'Ganti File Submission' : 'Upload File Submission', 'name' => 'file', 'type' => 'file', 'required' => true, 'help' => 'Format: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, RAR, TXT, CSV, JPG, JPEG, atau PNG. Maksimal 100 MB.'])<button class="w-full rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">{{ $submission ? 'Update Submission' : 'Kumpulkan Tugas' }}</button></form></aside></div>
+@php
+    use Illuminate\Support\Facades\Route;
+
+    $timezone = config('app.timezone', 'Asia/Jakarta');
+
+    $class = $assignment->kelas ?? null;
+    $course = $class?->course;
+
+    $deadline = $assignment->deadline
+        ? $assignment->deadline->timezone($timezone)->format('d M Y H:i') . ' WIB'
+        : '-';
+
+    $isExpired = $assignment->deadline && $assignment->deadline->lessThan(now());
+    $isSubmitted = (bool) $submission;
+    $isGraded = $submission && $submission->score !== null;
+
+    if ($class && Route::has('student.courses.show')) {
+        $backUrl = route('student.courses.show', $class);
+    } elseif (Route::has('student.assignments.index')) {
+        $backUrl = route('student.assignments.index');
+    } elseif (Route::has('student.dashboard')) {
+        $backUrl = route('student.dashboard');
+    } else {
+        $backUrl = '#';
+    }
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Mahasiswa</div>
+
+    <h1>{{ $assignment->title }}</h1>
+
+    <p>
+        {{ $course?->name ?? 'Mata kuliah' }}
+
+        @if($class?->name)
+            · {{ $class->name }}
+        @endif
+
+        · Deadline {{ $deadline }}
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $backUrl }}" class="btn">
+            ← Kembali
+        </a>
+
+        @if($assignment->file_path)
+            <a
+                href="{{ asset('storage/'.$assignment->file_path) }}"
+                target="_blank"
+                class="btn btn-primary"
+            >
+                Buka File Tugas
+            </a>
+        @endif
+    </div>
+</section>
+
+<div class="grid grid-3">
+    <section class="card" style="grid-column: span 2;">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Instruksi Tugas</h2>
+                <div class="section-subtitle">
+                    Baca instruksi tugas sebelum mengumpulkan submission.
+                </div>
+            </div>
+
+            @if($isExpired)
+                <span class="status-pill status-danger">
+                    Deadline lewat
+                </span>
+            @else
+                <span class="status-pill status-warning">
+                    Deadline aktif
+                </span>
+            @endif
+        </div>
+
+        <div class="grid grid-3" style="margin-bottom: 18px;">
+            <div class="stat-card">
+                <div class="stat-label">Mata Kuliah</div>
+                <div class="stat-value" style="font-size: 20px;">
+                    {{ $course?->name ?? '-' }}
+                </div>
+                <div class="stat-note">
+                    {{ $course?->code ? 'Kode: '.$course->code : 'Kode mata kuliah belum tersedia.' }}
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Deadline</div>
+                <div class="stat-value" style="font-size: 20px;">
+                    {{ $deadline }}
+                </div>
+                <div class="stat-note">
+                    Batas akhir pengumpulan tugas.
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Status Submission</div>
+                <div class="stat-value" style="font-size: 20px;">
+                    {{ $isSubmitted ? 'Sudah' : 'Belum' }}
+                </div>
+                <div class="stat-note">
+                    {{ $isSubmitted ? 'Kamu sudah mengumpulkan tugas.' : 'Kamu belum mengumpulkan tugas.' }}
+                </div>
+            </div>
+        </div>
+
+        <div
+            style="
+                padding: 18px;
+                border: 1px solid var(--line);
+                border-radius: 18px;
+                background: #f8fafc;
+                color: #334155;
+                line-height: 1.75;
+                white-space: pre-line;
+            "
+        >{{ $assignment->description ?: 'Tugas ini belum memiliki deskripsi.' }}</div>
+
+        @if($assignment->file_path)
+            <div style="margin-top: 18px;">
+                <a
+                    href="{{ asset('storage/'.$assignment->file_path) }}"
+                    target="_blank"
+                    class="btn btn-primary"
+                >
+                    Buka File Tugas
+                </a>
+            </div>
+        @endif
+    </section>
+
+    <aside class="card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Submission Saya</h2>
+                <div class="section-subtitle">
+                    Upload atau perbarui file submission tugas.
+                </div>
+            </div>
+        </div>
+
+        @if($submission)
+            <div class="list-stack" style="margin-bottom: 18px;">
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Status</h3>
+                        <div class="item-meta">
+                            Dikumpulkan:
+                            {{ $submission->submitted_at ? $submission->submitted_at->timezone($timezone)->format('d M Y H:i').' WIB' : '-' }}
+                        </div>
+                    </div>
+
+                    <span class="status-pill status-success">
+                        Sudah submit
+                    </span>
+                </div>
+
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Nilai</h3>
+                        <div class="item-meta">
+                            Hasil penilaian dari asisten.
+                        </div>
+                    </div>
+
+                    @if($isGraded)
+                        <span class="status-pill status-success">
+                            {{ $submission->score }}
+                        </span>
+                    @else
+                        <span class="status-pill status-warning">
+                            Belum dinilai
+                        </span>
+                    @endif
+                </div>
+            </div>
+
+            @if($submission->feedback)
+                <div class="alert" style="margin-bottom: 18px;">
+                    <strong>Feedback:</strong>
+                    <br>
+                    {{ $submission->feedback }}
+                </div>
+            @endif
+        @else
+            <div class="empty-state" style="margin-bottom: 18px;">
+                <div style="font-size: 30px; margin-bottom: 8px;">📝</div>
+
+                <h3 class="empty-state-title">
+                    Belum submit
+                </h3>
+
+                <p class="empty-state-text">
+                    Upload file submission untuk mengumpulkan tugas ini.
+                </p>
+            </div>
+        @endif
+
+        <form
+            action="{{ $submission ? route('student.submissions.update', $submission) : route('student.assignments.submit', $assignment) }}"
+            method="POST"
+            enctype="multipart/form-data"
+            class="form-card"
+            style="padding: 0; border: 0; box-shadow: none;"
+        >
+            @csrf
+
+            @if($submission)
+                @method('PUT')
+            @endif
+
+            <div class="form-group">
+                <label for="file" class="form-label">
+                    {{ $submission ? 'Ganti File Submission' : 'Upload File Submission' }}
+                    <span class="required">*</span>
+                </label>
+
+                <input
+                    id="file"
+                    type="file"
+                    name="file"
+                    class="form-control"
+                    required
+                >
+
+                <div class="form-help">
+                    Format: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, RAR, TXT, CSV, JPG, JPEG, atau PNG.
+                    Maksimal 100 MB.
+                </div>
+
+                @error('file')
+                    <div class="form-help" style="color: var(--danger);">
+                        {{ $message }}
+                    </div>
+                @enderror
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                {{ $submission ? 'Update Submission' : 'Kumpulkan Tugas' }}
+            </button>
+        </form>
+    </aside>
+</div>
+
+<style>
+    @media (max-width: 1100px) {
+        .grid.grid-3 > section[style*="grid-column"] {
+            grid-column: span 1 !important;
+        }
+    }
+</style>
 @endsection

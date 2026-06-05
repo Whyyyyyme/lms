@@ -3,70 +3,148 @@
 @section('title', 'Mata Kuliah Diajar')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Asisten',
-    'title' => 'Mata Kuliah yang Diajar',
-    'description' => 'Pilih mata kuliah/kelas terlebih dahulu. Setelah masuk ke kelas, baru kelola materi, tugas, dan absensi.'
-])
+@php
+    use Illuminate\Support\Facades\Route;
 
-<div class="grid grid-4" style="margin-bottom:18px;">
-    @include('partials.stat-card', ['label' => 'Kelas Diampu', 'value' => $statistics['total_kelas'] ?? 0, 'icon' => '🏫'])
-    @include('partials.stat-card', ['label' => 'Mahasiswa', 'value' => $statistics['total_mahasiswa'] ?? 0, 'icon' => '🎓'])
-    @include('partials.stat-card', ['label' => 'Materi', 'value' => $statistics['total_materi'] ?? 0, 'icon' => '📘'])
-    @include('partials.stat-card', ['label' => 'Tugas', 'value' => $statistics['total_tugas'] ?? 0, 'icon' => '📝'])
+    $classes = $classes ?? collect();
+    $statistics = $statistics ?? [];
+
+    $dashboardUrl = Route::has('assistant.dashboard')
+        ? route('assistant.dashboard')
+        : '#';
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Asisten Praktikum</div>
+
+    <h1>Mata Kuliah yang Diajar</h1>
+
+    <p>
+        Pilih mata kuliah atau kelas praktikum terlebih dahulu.
+        Setelah masuk ke kelas, kamu bisa mengelola materi, tugas, absensi, dan submission khusus untuk kelas tersebut.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+    </div>
+</section>
+
+<div class="grid grid-4" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Kelas Diampu</div>
+        <div class="stat-value">{{ $statistics['total_kelas'] ?? 0 }}</div>
+        <div class="stat-note">Total kelas praktikum yang kamu kelola.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Mahasiswa</div>
+        <div class="stat-value">{{ $statistics['total_mahasiswa'] ?? 0 }}</div>
+        <div class="stat-note">Mahasiswa yang terdaftar di kelas kamu.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Materi</div>
+        <div class="stat-value">{{ $statistics['total_materi'] ?? 0 }}</div>
+        <div class="stat-note">Materi yang sudah dibuat.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Tugas</div>
+        <div class="stat-value">{{ $statistics['total_tugas'] ?? 0 }}</div>
+        <div class="stat-note">Tugas praktikum yang sudah dibuat.</div>
+    </div>
 </div>
 
-@if(($classes ?? collect())->isEmpty())
-    <div class="alert alert-error">
-        Kamu belum ditugaskan ke kelas/mata kuliah mana pun. Minta admin mengatur asisten pada menu kelas praktikum.
+<section class="card">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Daftar Kelas Praktikum</h2>
+            <div class="section-subtitle">
+                Masuk ke salah satu kelas untuk mengelola materi, tugas, absensi, dan submission.
+            </div>
+        </div>
     </div>
-@else
-    <div class="grid grid-3">
-        @foreach($classes as $class)
-            @php
-                $course = $class->course;
-                $semester = $course?->studySemester;
-            @endphp
 
-            <a href="{{ route('assistant.courses.show', $class) }}" class="action-card" style="display:block;padding:20px;">
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;">
+    @if($classes->isEmpty())
+        <div class="alert alert-error">
+            Kamu belum ditugaskan ke kelas/mata kuliah mana pun.
+            Minta admin mengatur asisten pada menu kelas praktikum.
+        </div>
+    @else
+        <div class="course-grid">
+            @foreach($classes as $class)
+                @php
+                    $course = $class->course;
+                    $semester = $course?->studySemester;
+                    $academicYear = $course?->academicYear;
+                @endphp
+
+                <a href="{{ route('assistant.courses.show', $class) }}" class="course-card">
                     <div>
-                        <div style="font-size:12px;font-weight:900;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;">
+                        <span class="course-code">
                             {{ $course?->code ?? 'Kode MK' }}
-                        </div>
-                        <h3 style="margin:6px 0 4px;font-size:20px;line-height:1.25;">
+                        </span>
+
+                        <h3 class="course-title">
                             {{ $course?->name ?? 'Mata kuliah tidak tersedia' }}
                         </h3>
-                        <p style="margin:0;color:var(--muted);font-size:14px;">
+
+                        <div class="course-meta">
                             {{ $class->name }}
+
                             @if($semester)
                                 · {{ $semester->name }}
                             @endif
-                        </p>
-                    </div>
-                    <div style="font-size:28px;">📚</div>
-                </div>
 
-                <div class="grid grid-3" style="gap:8px;margin:14px 0;">
-                    <div class="stat-card" style="padding:10px;box-shadow:none;">
-                        <small>Materi</small><br><strong>{{ $class->materials_count ?? 0 }}</strong>
-                    </div>
-                    <div class="stat-card" style="padding:10px;box-shadow:none;">
-                        <small>Tugas</small><br><strong>{{ $class->assignments_count ?? 0 }}</strong>
-                    </div>
-                    <div class="stat-card" style="padding:10px;box-shadow:none;">
-                        <small>Absensi</small><br><strong>{{ $class->attendances_count ?? 0 }}</strong>
-                    </div>
-                </div>
+                            @if($academicYear)
+                                <br>
+                                Tahun Akademik {{ $academicYear->name }}
+                            @endif
 
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                    <span style="color:var(--muted);font-size:14px;">
-                        {{ $class->resolved_students_count ?? 0 }} mahasiswa
-                    </span>
-                    <span style="font-weight:800;color:var(--primary);">Kelola →</span>
-                </div>
-            </a>
-        @endforeach
-    </div>
-@endif
+                            @if($class->room)
+                                <br>
+                                Ruang {{ $class->room }}
+                            @endif
+
+                            @if($class->schedule)
+                                <br>
+                                Jadwal {{ $class->schedule }}
+                            @endif
+                        </div>
+
+                        <div class="metric-row">
+                            <span class="metric-pill">
+                                📘 {{ $class->materials_count ?? 0 }} Materi
+                            </span>
+
+                            <span class="metric-pill">
+                                📝 {{ $class->assignments_count ?? 0 }} Tugas
+                            </span>
+
+                            <span class="metric-pill">
+                                ✅ {{ $class->attendances_count ?? 0 }} Absensi
+                            </span>
+
+                            <span class="metric-pill">
+                                🎓 {{ $class->resolved_students_count ?? 0 }} Mahasiswa
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="course-footer">
+                        <span class="status-pill status-info">
+                            Kelola kelas
+                        </span>
+
+                        <span style="font-weight: 900; color: var(--primary);">
+                            →
+                        </span>
+                    </div>
+                </a>
+            @endforeach
+        </div>
+    @endif
+</section>
 @endsection

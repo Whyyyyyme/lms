@@ -4,11 +4,17 @@
 
     if ($user) {
         if (method_exists($user, 'hasRole')) {
-            $roleLabel = $user->hasRole('admin') ? 'Admin' : ($user->hasRole('asisten') ? 'Asisten Praktikum' : ($user->hasRole('mahasiswa') ? 'Mahasiswa' : 'Pengguna'));
+            $roleLabel = $user->hasRole('admin')
+                ? 'Admin'
+                : ($user->hasRole('asisten')
+                    ? 'Asisten Praktikum'
+                    : ($user->hasRole('mahasiswa') ? 'Mahasiswa' : 'Pengguna'));
         } elseif (! empty($user->role)) {
             $roleLabel = ucfirst($user->role);
         }
     }
+
+    $initial = strtoupper(substr($user->name ?? 'U', 0, 1));
 @endphp
 
 <header class="topbar">
@@ -23,7 +29,9 @@
 
         <div>
             <div class="brand-title">LMS Praktikum</div>
-            <div class="brand-subtitle">Sistem Manajemen Pembelajaran Praktikum</div>
+            <div class="brand-subtitle">
+                Sistem Manajemen Pembelajaran Praktikum
+            </div>
         </div>
     </div>
 
@@ -31,15 +39,25 @@
         @if (class_exists(\App\Livewire\NotificationDropdown::class))
             <livewire:notification-dropdown />
         @elseif (\Illuminate\Support\Facades\Route::has('notifications.index'))
-            <a href="{{ route('notifications.index') }}" class="icon-btn" title="Notifikasi">🔔</a>
+            <a href="{{ route('notifications.index') }}" class="icon-btn" title="Notifikasi" aria-label="Notifikasi">
+                🔔
+            </a>
         @endif
 
         @auth
-            <div class="user-chip">
-                <span class="user-avatar">{{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}</span>
+            <div class="user-chip" title="{{ $user->name }} - {{ $roleLabel }}">
+                <span class="user-avatar">
+                    {{ $initial }}
+                </span>
+
                 <span>
-                    <span class="user-name">{{ $user->name }}</span>
-                    <span class="user-role">{{ $roleLabel }}</span>
+                    <span class="user-name">
+                        {{ $user->name }}
+                    </span>
+
+                    <span class="user-role">
+                        {{ $roleLabel }}
+                    </span>
                 </span>
             </div>
         @endauth

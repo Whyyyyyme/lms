@@ -6,316 +6,591 @@
 @php
     use Illuminate\Support\Facades\Route;
 
-    $safe = fn ($name) => Route::has($name) ? route($name) : '#';
+    $safe = fn (string $name, array $params = []) => Route::has($name)
+        ? route($name, $params)
+        : '#';
+
     $statistics = $statistics ?? [];
+    $semesterSummaries = $semesterSummaries ?? collect();
+    $latestUsers = $latestUsers ?? collect();
+    $latestClasses = $latestClasses ?? collect();
+    $latestSubmissions = $latestSubmissions ?? collect();
+
+    $needFixStudentSemester = ($statistics['total_mahasiswa_tanpa_semester'] ?? 0) > 0;
+    $needFixClassAssistant = ($statistics['total_classes_without_assistant'] ?? 0) > 0;
 @endphp
 
-@include('partials.page-header', [
-    'eyebrow' => 'Admin',
-    'title' => 'Dashboard Admin',
-    'description' => 'Ringkasan data LMS Praktikum berdasarkan semester, mata kuliah, kelas, user, tugas, dan absensi.'
-])
+<section class="dashboard-hero">
+    <div class="eyebrow">Admin</div>
 
-<div class="grid grid-4" style="margin-bottom:18px;">
-    @include('partials.stat-card', [
-        'label' => 'Asisten',
-        'value' => $statistics['total_asisten'] ?? 0,
-        'icon' => '🧑‍🏫'
-    ])
+    <h1>Dashboard Admin</h1>
 
-    @include('partials.stat-card', [
-        'label' => 'Mahasiswa',
-        'value' => $statistics['total_mahasiswa'] ?? 0,
-        'icon' => '🎓'
-    ])
+    <p>
+        Ringkasan data LMS Praktikum berdasarkan semester, mata kuliah, kelas, user,
+        tugas, submission, dan absensi.
+    </p>
 
-    @include('partials.stat-card', [
-        'label' => 'Mata Kuliah',
-        'value' => $statistics['total_courses'] ?? 0,
-        'icon' => '📚'
-    ])
+    <div class="hero-actions">
+        <a href="{{ $safe('admin.users.create') }}" class="btn btn-primary">
+            👥 Tambah User
+        </a>
 
-    @include('partials.stat-card', [
-        'label' => 'Kelas Praktikum',
-        'value' => $statistics['total_classes'] ?? 0,
-        'icon' => '🏫'
-    ])
-</div>
+        <a href="{{ $safe('admin.matakuliah.create') }}" class="btn">
+            📚 Tambah Mata Kuliah
+        </a>
 
-<div class="grid grid-4" style="margin-bottom:18px;">
-    @include('partials.stat-card', [
-        'label' => 'Semester Aktif',
-        'value' => ($statistics['total_active_semesters'] ?? 0) . ' / ' . ($statistics['total_semesters'] ?? 0),
-        'icon' => '🎯'
-    ])
-
-    @include('partials.stat-card', [
-        'label' => 'Kelas Aktif',
-        'value' => ($statistics['total_active_classes'] ?? 0) . ' / ' . ($statistics['total_classes'] ?? 0),
-        'icon' => '✅'
-    ])
-
-    @include('partials.stat-card', [
-        'label' => 'Submission Belum Dinilai',
-        'value' => $statistics['total_ungraded_submissions'] ?? 0,
-        'icon' => '📥'
-    ])
-
-    @include('partials.stat-card', [
-        'label' => 'Absensi Terbuka',
-        'value' => $statistics['total_open_attendances'] ?? 0,
-        'icon' => '🟢'
-    ])
-</div>
-
-@if(($statistics['total_mahasiswa_tanpa_semester'] ?? 0) > 0 || ($statistics['total_classes_without_assistant'] ?? 0) > 0)
-    <div class="alert alert-error">
-        <strong>Perlu diperbaiki:</strong>
-        <ul style="margin:8px 0 0 18px;">
-            @if(($statistics['total_mahasiswa_tanpa_semester'] ?? 0) > 0)
-                <li>
-                    Ada {{ $statistics['total_mahasiswa_tanpa_semester'] }} mahasiswa yang belum punya semester.
-                    Cek menu <strong>Kelola Asisten & Mahasiswa</strong>.
-                </li>
-            @endif
-
-            @if(($statistics['total_classes_without_assistant'] ?? 0) > 0)
-                <li>
-                    Ada {{ $statistics['total_classes_without_assistant'] }} kelas praktikum yang belum punya asisten.
-                    Cek menu <strong>Kelola Kelas Praktikum</strong>.
-                </li>
-            @endif
-        </ul>
+        <a href="{{ $safe('admin.kelas.create') }}" class="btn">
+            🏫 Tambah Kelas
+        </a>
     </div>
+</section>
+
+<div class="grid grid-4" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Asisten</div>
+        <div class="stat-value">{{ $statistics['total_asisten'] ?? 0 }}</div>
+        <div class="stat-note">Total akun asisten praktikum.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Mahasiswa</div>
+        <div class="stat-value">{{ $statistics['total_mahasiswa'] ?? 0 }}</div>
+        <div class="stat-note">Total akun mahasiswa.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Mata Kuliah</div>
+        <div class="stat-value">{{ $statistics['total_courses'] ?? 0 }}</div>
+        <div class="stat-note">Total mata kuliah praktikum.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Kelas Praktikum</div>
+        <div class="stat-value">{{ $statistics['total_classes'] ?? 0 }}</div>
+        <div class="stat-note">Total kelas praktikum.</div>
+    </div>
+</div>
+
+<div class="grid grid-4" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Semester Aktif</div>
+        <div class="stat-value" style="font-size: 28px;">
+            {{ ($statistics['total_active_semesters'] ?? 0) . ' / ' . ($statistics['total_semesters'] ?? 0) }}
+        </div>
+        <div class="stat-note">Semester aktif dibanding total semester.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Kelas Aktif</div>
+        <div class="stat-value" style="font-size: 28px;">
+            {{ ($statistics['total_active_classes'] ?? 0) . ' / ' . ($statistics['total_classes'] ?? 0) }}
+        </div>
+        <div class="stat-note">Kelas aktif dibanding total kelas.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Submission Belum Dinilai</div>
+        <div class="stat-value">{{ $statistics['total_ungraded_submissions'] ?? 0 }}</div>
+        <div class="stat-note">Submission yang perlu dicek asisten.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Absensi Terbuka</div>
+        <div class="stat-value">{{ $statistics['total_open_attendances'] ?? 0 }}</div>
+        <div class="stat-note">Sesi absensi yang sedang dibuka.</div>
+    </div>
+</div>
+
+@if($needFixStudentSemester || $needFixClassAssistant)
+    <section class="card" style="margin-bottom: 18px; border-color: #fecaca;">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Data Perlu Diperbaiki</h2>
+                <div class="section-subtitle">
+                    Beberapa data utama belum lengkap dan dapat memengaruhi akses mahasiswa atau asisten.
+                </div>
+            </div>
+
+            <span class="status-pill status-danger">
+                Perlu Dicek
+            </span>
+        </div>
+
+        <div class="list-stack">
+            @if($needFixStudentSemester)
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Mahasiswa belum punya semester</h3>
+                        <div class="item-meta">
+                            Ada {{ $statistics['total_mahasiswa_tanpa_semester'] }} mahasiswa yang belum memiliki semester.
+                            Cek menu Kelola Asisten & Mahasiswa.
+                        </div>
+                    </div>
+
+                    <a href="{{ $safe('admin.users.index') }}" class="btn btn-sm">
+                        Cek User
+                    </a>
+                </div>
+            @endif
+
+            @if($needFixClassAssistant)
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Kelas belum punya asisten</h3>
+                        <div class="item-meta">
+                            Ada {{ $statistics['total_classes_without_assistant'] }} kelas praktikum yang belum memiliki asisten.
+                            Cek menu Kelola Kelas Praktikum.
+                        </div>
+                    </div>
+
+                    <a href="{{ $safe('admin.kelas.index') }}" class="btn btn-sm">
+                        Cek Kelas
+                    </a>
+                </div>
+            @endif
+        </div>
+    </section>
 @endif
 
-<div class="grid grid-3" style="margin-bottom:18px;">
-    @include('partials.action-card', [
-        'title' => 'Tambah Asisten / Mahasiswa',
-        'description' => 'Tambah akun asisten praktikum atau mahasiswa. Akun admin utama dikelola manual.',
-        'href' => $safe('admin.users.create'),
-        'icon' => '👥'
-    ])
+<section class="card" style="margin-bottom: 22px;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Aksi Cepat Admin</h2>
+            <div class="section-subtitle">
+                Gunakan menu berikut untuk mengelola data utama LMS Praktikum.
+            </div>
+        </div>
+    </div>
 
-    @include('partials.action-card', [
-        'title' => 'Tambah Semester',
-        'description' => 'Buat semester mahasiswa untuk dasar mata kuliah dan kelas praktikum.',
-        'href' => $safe('admin.semester.create'),
-        'icon' => '🎓'
-    ])
+    <div class="grid grid-3">
+        <a href="{{ $safe('admin.users.create') }}" class="action-card card">
+            <div class="metric-pill">👥 User</div>
 
-    @include('partials.action-card', [
-        'title' => 'Tambah Mata Kuliah',
-        'description' => 'Buat mata kuliah dan hubungkan ke semester mahasiswa.',
-        'href' => $safe('admin.matakuliah.create'),
-        'icon' => '📚'
-    ])
+            <h3 class="course-title">Tambah Asisten / Mahasiswa</h3>
 
-    @include('partials.action-card', [
-        'title' => 'Tambah Kelas',
-        'description' => 'Buat kelas praktikum, pilih mata kuliah, dan hubungkan asisten.',
-        'href' => $safe('admin.kelas.create'),
-        'icon' => '🏫'
-    ])
+            <p class="course-meta">
+                Tambah akun asisten praktikum atau mahasiswa. Akun admin utama dikelola manual.
+            </p>
 
-    @include('partials.action-card', [
-        'title' => 'Laporan Nilai',
-        'description' => 'Lihat rekap nilai submission mahasiswa.',
-        'href' => $safe('admin.reports.scores'),
-        'icon' => '🧾'
-    ])
+            <div class="course-footer">
+                <span class="status-pill status-info">Tambah user</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
 
-    @include('partials.action-card', [
-        'title' => 'Laporan Absensi',
-        'description' => 'Pantau rekap kehadiran mahasiswa.',
-        'href' => $safe('admin.reports.attendances'),
-        'icon' => '✅'
-    ])
+        <a href="{{ $safe('admin.semester.create') }}" class="action-card card">
+            <div class="metric-pill">🎓 Semester</div>
+
+            <h3 class="course-title">Tambah Semester</h3>
+
+            <p class="course-meta">
+                Buat semester mahasiswa untuk dasar mata kuliah dan kelas praktikum.
+            </p>
+
+            <div class="course-footer">
+                <span class="status-pill status-info">Tambah semester</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
+
+        <a href="{{ $safe('admin.matakuliah.create') }}" class="action-card card">
+            <div class="metric-pill">📚 Mata Kuliah</div>
+
+            <h3 class="course-title">Tambah Mata Kuliah</h3>
+
+            <p class="course-meta">
+                Buat mata kuliah dan hubungkan ke semester mahasiswa.
+            </p>
+
+            <div class="course-footer">
+                <span class="status-pill status-info">Tambah mata kuliah</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
+
+        <a href="{{ $safe('admin.kelas.create') }}" class="action-card card">
+            <div class="metric-pill">🏫 Kelas</div>
+
+            <h3 class="course-title">Tambah Kelas</h3>
+
+            <p class="course-meta">
+                Buat kelas praktikum, pilih mata kuliah, dan hubungkan asisten.
+            </p>
+
+            <div class="course-footer">
+                <span class="status-pill status-info">Tambah kelas</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
+
+        <a href="{{ $safe('admin.reports.scores') }}" class="action-card card">
+            <div class="metric-pill">🧾 Nilai</div>
+
+            <h3 class="course-title">Laporan Nilai</h3>
+
+            <p class="course-meta">
+                Lihat rekap nilai submission mahasiswa.
+            </p>
+
+            <div class="course-footer">
+                <span class="status-pill status-info">Buka laporan</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
+
+        <a href="{{ $safe('admin.reports.attendances') }}" class="action-card card">
+            <div class="metric-pill">✅ Absensi</div>
+
+            <h3 class="course-title">Laporan Absensi</h3>
+
+            <p class="course-meta">
+                Pantau rekap kehadiran mahasiswa.
+            </p>
+
+            <div class="course-footer">
+                <span class="status-pill status-info">Buka laporan</span>
+                <span style="font-weight: 900; color: var(--primary);">→</span>
+            </div>
+        </a>
+    </div>
+</section>
+
+<div class="admin-dashboard-grid">
+    <section class="card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Ringkasan Semester</h2>
+                <div class="section-subtitle">
+                    Data semester, jumlah mata kuliah, mahasiswa, dan status aktif.
+                </div>
+            </div>
+
+            <a href="{{ $safe('admin.semester.index') }}" class="btn btn-sm">
+                Semua Semester
+            </a>
+        </div>
+
+        @if($semesterSummaries->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">🎓</div>
+                <h3 class="empty-state-title">Belum ada data semester</h3>
+                <p class="empty-state-text">
+                    Data semester akan tampil setelah admin membuat semester mahasiswa.
+                </p>
+            </div>
+        @else
+            <div class="table-card">
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Semester</th>
+                                <th>Mata Kuliah</th>
+                                <th>Mahasiswa</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach($semesterSummaries as $semester)
+                                <tr>
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <a href="{{ $safe('admin.semester.show', [$semester]) }}">
+                                                <strong>{{ $semester->name }}</strong>
+                                            </a>
+
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                Level {{ $semester->level }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span class="status-pill status-muted">
+                                            {{ $semester->courses_count }} MK
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <span class="status-pill status-muted">
+                                            {{ $semester->students_count }} Mahasiswa
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <span class="status-pill {{ $semester->is_active ? 'status-success' : 'status-danger' }}">
+                                            {{ $semester->is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+    </section>
+
+    <section class="card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">User Terbaru</h2>
+                <div class="section-subtitle">
+                    Daftar user terbaru yang terdaftar di sistem.
+                </div>
+            </div>
+
+            <a href="{{ $safe('admin.users.index') }}" class="btn btn-sm">
+                Semua User
+            </a>
+        </div>
+
+        @if($latestUsers->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">👥</div>
+                <h3 class="empty-state-title">Belum ada user terbaru</h3>
+                <p class="empty-state-text">
+                    User terbaru akan tampil setelah data asisten atau mahasiswa dibuat.
+                </p>
+            </div>
+        @else
+            <div class="table-card">
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User Terbaru</th>
+                                <th>Jenis Akun</th>
+                                <th>Semester</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach($latestUsers as $user)
+                                @php
+                                    $currentRole = $user->roles->pluck('name')->first() ?: $user->role;
+
+                                    $roleLabel = match ($currentRole) {
+                                        'asisten' => 'Asisten',
+                                        'mahasiswa' => 'Mahasiswa',
+                                        'admin' => 'Admin',
+                                        default => ucfirst($currentRole ?? '-'),
+                                    };
+
+                                    $roleClass = match ($currentRole) {
+                                        'asisten' => 'status-info',
+                                        'mahasiswa' => 'status-success',
+                                        'admin' => 'status-warning',
+                                        default => 'status-muted',
+                                    };
+                                @endphp
+
+                                <tr>
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <a href="{{ $safe('admin.users.show', [$user]) }}">
+                                                <strong>{{ $user->name }}</strong>
+                                            </a>
+
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $user->email }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span class="status-pill {{ $roleClass }}">
+                                            {{ $roleLabel }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $currentRole === 'mahasiswa' ? ($user->studySemester?->name ?? '-') : '-' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+    </section>
 </div>
 
-<div class="grid gap-5 md:grid-cols-2">
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Semester</th>
-                    <th>Mata Kuliah</th>
-                    <th>Mahasiswa</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+<div class="admin-dashboard-grid" style="margin-top: 22px;">
+    <section class="card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Kelas Terbaru</h2>
+                <div class="section-subtitle">
+                    Data kelas praktikum terbaru beserta mata kuliah, asisten, dan statusnya.
+                </div>
+            </div>
 
-            <tbody>
-                @forelse($semesterSummaries as $semester)
-                    <tr>
-                        <td>
-                            <a href="{{ route('admin.semester.show', $semester) }}">
-                                <strong>{{ $semester->name }}</strong>
-                            </a>
-                            <br>
-                            <small>Level {{ $semester->level }}</small>
-                        </td>
+            <a href="{{ $safe('admin.kelas.index') }}" class="btn btn-sm">
+                Semua Kelas
+            </a>
+        </div>
 
-                        <td>{{ $semester->courses_count }}</td>
+        @if($latestClasses->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">🏫</div>
+                <h3 class="empty-state-title">Belum ada kelas praktikum</h3>
+                <p class="empty-state-text">
+                    Kelas praktikum akan tampil setelah admin membuat data kelas.
+                </p>
+            </div>
+        @else
+            <div class="table-card">
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Kelas Terbaru</th>
+                                <th>Mata Kuliah</th>
+                                <th>Asisten</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
 
-                        <td>{{ $semester->students_count }}</td>
+                        <tbody>
+                            @foreach($latestClasses as $class)
+                                <tr>
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <a href="{{ $safe('admin.kelas.show', [$class]) }}">
+                                                <strong>{{ $class->name }}</strong>
+                                            </a>
 
-                        <td>
-                            <span class="badge {{ $semester->is_active ? 'badge-green' : 'badge-red' }}">
-                                {{ $semester->is_active ? 'Aktif' : 'Nonaktif' }}
-                            </span>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4">Belum ada data semester.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $class->course?->studySemester?->name ?? '-' }}
+                                            </span>
+                                        </div>
+                                    </td>
 
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>User Terbaru</th>
-                    <th>Jenis Akun</th>
-                    <th>Semester</th>
-                </tr>
-            </thead>
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <strong>{{ $class->course?->code ?? '-' }}</strong>
 
-            <tbody>
-                @forelse($latestUsers as $user)
-                    @php
-                        $currentRole = $user->roles->pluck('name')->first() ?: $user->role;
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $class->course?->name ?? '-' }}
+                                            </span>
+                                        </div>
+                                    </td>
 
-                        $roleLabel = match ($currentRole) {
-                            'asisten' => 'Asisten',
-                            'mahasiswa' => 'Mahasiswa',
-                            default => ucfirst($currentRole ?? '-'),
-                        };
-                    @endphp
+                                    <td>
+                                        <span class="item-meta" style="margin-top: 0;">
+                                            {{ $class->assistant?->name ?? '-' }}
+                                        </span>
+                                    </td>
 
-                    <tr>
-                        <td>
-                            <a href="{{ route('admin.users.show', $user) }}">
-                                <strong>{{ $user->name }}</strong>
-                            </a>
-                            <br>
-                            <small>{{ $user->email }}</small>
-                        </td>
+                                    <td>
+                                        <span class="status-pill {{ $class->is_active ? 'status-success' : 'status-danger' }}">
+                                            {{ $class->is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+    </section>
 
-                        <td>{{ $roleLabel }}</td>
+    <section class="card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Submission Terbaru</h2>
+                <div class="section-subtitle">
+                    Pengumpulan tugas terbaru dan status penilaiannya.
+                </div>
+            </div>
 
-                        <td>
-                            {{ $currentRole === 'mahasiswa' ? ($user->studySemester?->name ?? '-') : '-' }}
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="3">Belum ada user terbaru.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+            <a href="{{ $safe('admin.reports.scores') }}" class="btn btn-sm">
+                Laporan Nilai
+            </a>
+        </div>
+
+        @if($latestSubmissions->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">📥</div>
+                <h3 class="empty-state-title">Belum ada submission</h3>
+                <p class="empty-state-text">
+                    Submission terbaru akan tampil setelah mahasiswa mengumpulkan tugas.
+                </p>
+            </div>
+        @else
+            <div class="table-card">
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Submission Terbaru</th>
+                                <th>Tugas</th>
+                                <th>Status Nilai</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach($latestSubmissions as $submission)
+                                <tr>
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <strong>{{ $submission->student?->name ?? '-' }}</strong>
+
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $submission->submitted_at?->format('d M Y H:i') ?? '-' }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div style="display: grid; gap: 5px;">
+                                            <strong>{{ $submission->assignment?->title ?? '-' }}</strong>
+
+                                            <span class="item-meta" style="margin-top: 0;">
+                                                {{ $submission->assignment?->kelas?->course?->name ?? '-' }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        @if($submission->graded_at)
+                                            <span class="status-pill status-success">
+                                                Sudah dinilai
+                                            </span>
+                                        @else
+                                            <span class="status-pill status-danger">
+                                                Belum dinilai
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+    </section>
 </div>
 
-<div class="grid gap-5 md:grid-cols-2" style="margin-top:18px;">
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Kelas Terbaru</th>
-                    <th>Mata Kuliah</th>
-                    <th>Asisten</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+<style>
+    .admin-dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+        align-items: start;
+    }
 
-            <tbody>
-                @forelse($latestClasses as $class)
-                    <tr>
-                        <td>
-                            <a href="{{ route('admin.kelas.show', $class) }}">
-                                <strong>{{ $class->name }}</strong>
-                            </a>
-                            <br>
-                            <small>{{ $class->course?->studySemester?->name ?? '-' }}</small>
-                        </td>
-
-                        <td>
-                            {{ $class->course?->code ?? '-' }}
-                            <br>
-                            <small>{{ $class->course?->name ?? '-' }}</small>
-                        </td>
-
-                        <td>{{ $class->assistant?->name ?? '-' }}</td>
-
-                        <td>
-                            <span class="badge {{ $class->is_active ? 'badge-green' : 'badge-red' }}">
-                                {{ $class->is_active ? 'Aktif' : 'Nonaktif' }}
-                            </span>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4">Belum ada kelas praktikum.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Submission Terbaru</th>
-                    <th>Tugas</th>
-                    <th>Status Nilai</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                @forelse($latestSubmissions as $submission)
-                    <tr>
-                        <td>
-                            <strong>{{ $submission->student?->name ?? '-' }}</strong>
-                            <br>
-                            <small>
-                                {{ $submission->submitted_at?->format('d M Y H:i') ?? '-' }}
-                            </small>
-                        </td>
-
-                        <td>
-                            {{ $submission->assignment?->title ?? '-' }}
-                            <br>
-                            <small>
-                                {{ $submission->assignment?->kelas?->course?->name ?? '-' }}
-                            </small>
-                        </td>
-
-                        <td>
-                            @if($submission->graded_at)
-                                <span class="badge badge-green">
-                                    Sudah dinilai
-                                </span>
-                            @else
-                                <span class="badge badge-red">
-                                    Belum dinilai
-                                </span>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="3">Belum ada submission.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
+    @media (max-width: 1100px) {
+        .admin-dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 @endsection

@@ -19,7 +19,21 @@
             ? 'Asisten Praktikum'
             : ($isStudent ? 'Mahasiswa' : 'Pengguna'));
 
-    $isActive = fn (string $pattern): string => request()->is($pattern) ? 'active' : '';
+    $activeClass = function (array|string $patterns): string {
+        foreach ((array) $patterns as $pattern) {
+            if (request()->is($pattern)) {
+                return 'active';
+            }
+        }
+
+        return '';
+    };
+
+    $studentSemesterName = null;
+
+    if ($isStudent && $user) {
+        $studentSemesterName = optional($user->studySemester ?? null)->name;
+    }
 @endphp
 
 <div class="sidebar-overlay" data-sidebar-close></div>
@@ -28,7 +42,9 @@
     <div class="sidebar-header">
         <div>
             <div class="sidebar-title">LMS Praktikum</div>
-            <div class="sidebar-subtitle">Menu navigasi utama</div>
+            <div class="sidebar-subtitle">
+                Sistem pembelajaran praktikum berbasis mata kuliah.
+            </div>
         </div>
 
         <button type="button" class="icon-btn" data-sidebar-close aria-label="Tutup menu">
@@ -38,18 +54,21 @@
 
     @auth
         <div class="sidebar-user">
-            <div class="sidebar-user-name">{{ $user->name }}</div>
-            <div class="sidebar-user-email">{{ $user->email }}</div>
+            <div class="sidebar-user-name">
+                {{ $user->name }}
+            </div>
 
-            @if($isStudent && $user->studySemester)
-                <div class="sidebar-user-role">
-                    {{ $roleLabel }} • {{ $user->studySemester->name }}
-                </div>
-            @else
-                <div class="sidebar-user-role">
+            <div class="sidebar-user-email">
+                {{ $user->email }}
+            </div>
+
+            <div class="sidebar-user-role">
+                @if($isStudent && $studentSemesterName)
+                    {{ $roleLabel }} • {{ $studentSemesterName }}
+                @else
                     {{ $roleLabel }}
-                </div>
-            @endif
+                @endif
+            </div>
         </div>
     @endauth
 
@@ -60,7 +79,7 @@
             @if(Route::has('admin.dashboard'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/dashboard') }}"
+                    class="sidebar-link {{ $activeClass('admin/dashboard') }}"
                     href="{{ route('admin.dashboard') }}"
                 >
                     <span class="sidebar-icon">🏠</span>
@@ -73,7 +92,7 @@
             @if(Route::has('admin.users.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/users*') }}"
+                    class="sidebar-link {{ $activeClass('admin/users*') }}"
                     href="{{ route('admin.users.index') }}"
                 >
                     <span class="sidebar-icon">👥</span>
@@ -84,7 +103,7 @@
             @if(Route::has('admin.semester.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/semester*') }}"
+                    class="sidebar-link {{ $activeClass('admin/semester*') }}"
                     href="{{ route('admin.semester.index') }}"
                 >
                     <span class="sidebar-icon">🎓</span>
@@ -95,7 +114,7 @@
             @if(Route::has('admin.tahun-akademik.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/tahun-akademik*') }}"
+                    class="sidebar-link {{ $activeClass('admin/tahun-akademik*') }}"
                     href="{{ route('admin.tahun-akademik.index') }}"
                 >
                     <span class="sidebar-icon">📅</span>
@@ -108,7 +127,7 @@
             @if(Route::has('admin.matakuliah.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/matakuliah*') }}"
+                    class="sidebar-link {{ $activeClass('admin/matakuliah*') }}"
                     href="{{ route('admin.matakuliah.index') }}"
                 >
                     <span class="sidebar-icon">📚</span>
@@ -119,7 +138,7 @@
             @if(Route::has('admin.kelas.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/kelas*') }}"
+                    class="sidebar-link {{ $activeClass('admin/kelas*') }}"
                     href="{{ route('admin.kelas.index') }}"
                 >
                     <span class="sidebar-icon">🏫</span>
@@ -132,7 +151,7 @@
             @if(Route::has('admin.reports.scores'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/laporan/nilai*') }}"
+                    class="sidebar-link {{ $activeClass('admin/laporan/nilai*') }}"
                     href="{{ route('admin.reports.scores') }}"
                 >
                     <span class="sidebar-icon">📊</span>
@@ -143,7 +162,7 @@
             @if(Route::has('admin.reports.attendances'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/laporan/absensi*') }}"
+                    class="sidebar-link {{ $activeClass('admin/laporan/absensi*') }}"
                     href="{{ route('admin.reports.attendances') }}"
                 >
                     <span class="sidebar-icon">✅</span>
@@ -154,7 +173,7 @@
             @if(Route::has('admin.reports.activities'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/laporan/aktivitas*') }}"
+                    class="sidebar-link {{ $activeClass('admin/laporan/aktivitas*') }}"
                     href="{{ route('admin.reports.activities') }}"
                 >
                     <span class="sidebar-icon">🧾</span>
@@ -167,7 +186,7 @@
             @if(Route::has('admin.settings.edit'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('admin/pengaturan*') }}"
+                    class="sidebar-link {{ $activeClass('admin/pengaturan*') }}"
                     href="{{ route('admin.settings.edit') }}"
                 >
                     <span class="sidebar-icon">⚙️</span>
@@ -182,7 +201,7 @@
             @if(Route::has('assistant.dashboard'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/dashboard') || $isActive('asisten/mata-kuliah*') }}"
+                    class="sidebar-link {{ $activeClass(['asisten/dashboard', 'asisten/mata-kuliah*']) }}"
                     href="{{ route('assistant.dashboard') }}"
                 >
                     <span class="sidebar-icon">📚</span>
@@ -193,7 +212,7 @@
             @if(Route::has('assistant.submissions.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/submissions*') }}"
+                    class="sidebar-link {{ $activeClass('asisten/submissions*') }}"
                     href="{{ route('assistant.submissions.index') }}"
                 >
                     <span class="sidebar-icon">📥</span>
@@ -204,7 +223,7 @@
             @if(Route::has('assistant.pengumuman.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('asisten/pengumuman*') }}"
+                    class="sidebar-link {{ $activeClass('asisten/pengumuman*') }}"
                     href="{{ route('assistant.pengumuman.index') }}"
                 >
                     <span class="sidebar-icon">📢</span>
@@ -243,7 +262,7 @@
             @if(Route::has('student.dashboard'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/dashboard') }}"
+                    class="sidebar-link {{ $activeClass('mahasiswa/dashboard') }}"
                     href="{{ route('student.dashboard') }}"
                 >
                     <span class="sidebar-icon">🏠</span>
@@ -254,7 +273,7 @@
             @if(Route::has('student.courses.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/mata-kuliah*') }}"
+                    class="sidebar-link {{ $activeClass('mahasiswa/mata-kuliah*') }}"
                     href="{{ route('student.courses.index') }}"
                 >
                     <span class="sidebar-icon">📚</span>
@@ -265,7 +284,7 @@
             @if(Route::has('student.schedule.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/jadwal*') }}"
+                    class="sidebar-link {{ $activeClass('mahasiswa/jadwal*') }}"
                     href="{{ route('student.schedule.index') }}"
                 >
                     <span class="sidebar-icon">📅</span>
@@ -276,7 +295,7 @@
             @if(Route::has('student.grades.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/nilai*') }}"
+                    class="sidebar-link {{ $activeClass('mahasiswa/nilai*') }}"
                     href="{{ route('student.grades.index') }}"
                 >
                     <span class="sidebar-icon">⭐</span>
@@ -287,7 +306,7 @@
             @if(Route::has('student.chatbot.index'))
                 <a
                     data-sidebar-link
-                    class="sidebar-link {{ $isActive('mahasiswa/chatbot*') }}"
+                    class="sidebar-link {{ $activeClass('mahasiswa/chatbot*') }}"
                     href="{{ route('student.chatbot.index') }}"
                 >
                     <span class="sidebar-icon">🤖</span>
@@ -301,7 +320,7 @@
         @if(Route::has('notifications.index'))
             <a
                 data-sidebar-link
-                class="sidebar-link {{ $isActive('notifikasi*') }}"
+                class="sidebar-link {{ $activeClass('notifikasi*') }}"
                 href="{{ route('notifications.index') }}"
             >
                 <span class="sidebar-icon">🔔</span>

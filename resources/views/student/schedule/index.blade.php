@@ -1,13 +1,12 @@
-@extends('layouts.app', ['title' => 'Jadwal Praktikum'])
+@extends('layouts.app')
+
+@section('title', 'Jadwal Praktikum')
 
 @section('content')
-@include('partials.page-header', [
-    'eyebrow' => 'Mahasiswa',
-    'title' => 'Jadwal Praktikum',
-    'description' => 'Kalender aktivitas praktikum, deadline tugas, dan sesi absensi.',
-])
-
 @php
+    use Illuminate\Support\Facades\Route;
+    use Carbon\Carbon;
+
     $previousQuery = array_filter([
         'bulan' => $previousMonth->format('Y-m'),
         'mata_kuliah' => $selectedCourseId,
@@ -24,28 +23,62 @@
     ]);
 
     $dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+    $dashboardUrl = Route::has('student.dashboard')
+        ? route('student.dashboard')
+        : '#';
+
+    $coursesUrl = Route::has('student.courses.index')
+        ? route('student.courses.index')
+        : '#';
 @endphp
 
-<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-    <section class="rounded-3xl border bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+<section class="dashboard-hero">
+    <div class="eyebrow">Mahasiswa</div>
+
+    <h1>Jadwal Praktikum</h1>
+
+    <p>
+        Kalender aktivitas praktikum, deadline tugas, dan sesi absensi.
+        Gunakan filter mata kuliah untuk melihat jadwal pada kelas tertentu.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $dashboardUrl }}" class="btn">
+            ← Dashboard
+        </a>
+
+        @if(Route::has('student.courses.index'))
+            <a href="{{ $coursesUrl }}" class="btn btn-primary">
+                📚 Mata Kuliah Saya
+            </a>
+        @endif
+    </div>
+</section>
+
+<div class="schedule-layout">
+    <section class="card">
+        <div class="section-header">
             <div>
-                <h2 class="text-xl font-black text-slate-950">
+                <h2 class="section-title">
                     {{ $month->translatedFormat('F Y') }}
                 </h2>
 
-                <p class="mt-1 text-sm text-slate-500">
+                <div class="section-subtitle">
                     Praktikum, tugas, dan absensi ditampilkan dalam satu kalender.
-                </p>
+                </div>
             </div>
 
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div class="actions-inline">
                 <form method="GET" action="{{ route('student.schedule.index') }}">
                     <input type="hidden" name="bulan" value="{{ $month->format('Y-m') }}">
 
-                    <select name="mata_kuliah"
-                            onchange="this.form.submit()"
-                            class="w-full rounded-2xl border-slate-200 text-sm font-semibold shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-56">
+                    <select
+                        name="mata_kuliah"
+                        onchange="this.form.submit()"
+                        class="form-control"
+                        style="width: 230px;"
+                    >
                         <option value="">Semua mata kuliah</option>
 
                         @foreach($courses as $course)
@@ -56,79 +89,72 @@
                     </select>
                 </form>
 
-                <div class="flex items-center gap-2">
-                    <a href="{{ route('student.schedule.index', $previousQuery) }}"
-                       class="rounded-2xl border bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-                        ←
-                    </a>
+                <a href="{{ route('student.schedule.index', $previousQuery) }}" class="btn btn-sm">
+                    ←
+                </a>
 
-                    <a href="{{ route('student.schedule.index', $todayQuery) }}"
-                       class="rounded-2xl border bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-                        Hari ini
-                    </a>
+                <a href="{{ route('student.schedule.index', $todayQuery) }}" class="btn btn-sm">
+                    Hari ini
+                </a>
 
-                    <a href="{{ route('student.schedule.index', $nextQuery) }}"
-                       class="rounded-2xl border bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-                        →
-                    </a>
-                </div>
+                <a href="{{ route('student.schedule.index', $nextQuery) }}" class="btn btn-sm">
+                    →
+                </a>
             </div>
         </div>
 
-        <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold">
-            <span class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
-                Praktikum
+        <div class="metric-row" style="margin-bottom: 18px;">
+            <span class="metric-pill">
+                🔵 Praktikum
             </span>
-            <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
-                Tugas
+
+            <span class="metric-pill">
+                🟠 Tugas
             </span>
-            <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
-                Absensi
+
+            <span class="metric-pill">
+                🟢 Absensi
             </span>
         </div>
 
-        <div class="mt-6 overflow-x-auto">
-            <div class="min-w-[900px] overflow-hidden rounded-3xl border">
-                <div class="grid grid-cols-7 bg-slate-50">
+        <div class="schedule-scroll">
+            <div class="schedule-calendar">
+                <div class="schedule-week-header">
                     @foreach($dayNames as $dayName)
-                        <div class="border-r px-3 py-3 text-center text-sm font-black text-slate-700 last:border-r-0">
+                        <div class="schedule-day-name">
                             {{ $dayName }}
                         </div>
                     @endforeach
                 </div>
 
                 @foreach($weeks as $week)
-                    <div class="grid grid-cols-7 border-t">
+                    <div class="schedule-week-row">
                         @foreach($week as $day)
-                            <div class="min-h-36 border-r p-3 last:border-r-0 {{ $day['is_current_month'] ? 'bg-white' : 'bg-slate-50 text-slate-400' }}">
-                                <div class="mb-2 flex items-center justify-between">
-                                    <span class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-black
-                                        {{ $day['is_today'] ? 'bg-indigo-600 text-white' : 'text-slate-700' }}">
+                            <div class="schedule-day {{ $day['is_current_month'] ? '' : 'schedule-day-muted' }}">
+                                <div class="schedule-day-top">
+                                    <span class="schedule-date {{ $day['is_today'] ? 'schedule-date-today' : '' }}">
                                         {{ $day['date']->day }}
                                     </span>
 
                                     @if($day['events']->count() > 0)
-                                        <span class="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                                        <span class="status-pill status-muted">
                                             {{ $day['events']->count() }}
                                         </span>
                                     @endif
                                 </div>
 
-                                <div class="space-y-1.5">
+                                <div class="schedule-events">
                                     @foreach($day['events']->take(4) as $event)
                                         @php
-                                            $eventClass = match ($event['variant']) {
-                                                'praktikum' => 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100',
-                                                'tugas' => 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
-                                                'absensi' => 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-                                                default => 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
-                                            };
+                                            $eventVariant = $event['variant'] ?? 'default';
                                         @endphp
 
-                                        <a href="{{ $event['url'] ?: '#' }}"
-                                           class="block rounded-xl border px-2 py-1.5 text-[11px] font-bold leading-snug transition {{ $eventClass }}"
-                                           title="{{ $event['title'] }} - {{ $event['subtitle'] }}">
-                                            <div class="truncate">
+                                        <a
+                                            href="{{ $event['url'] ?: '#' }}"
+                                            class="schedule-event schedule-event-{{ $eventVariant }}"
+                                            title="{{ $event['title'] }} - {{ $event['subtitle'] }}"
+                                        >
+                                            <div class="schedule-event-title">
                                                 @if($event['time'])
                                                     <span>{{ $event['time'] }}</span>
                                                     <span> · </span>
@@ -137,14 +163,14 @@
                                                 <span>{{ $event['title'] }}</span>
                                             </div>
 
-                                            <div class="truncate text-[10px] font-semibold opacity-80">
+                                            <div class="schedule-event-meta">
                                                 {{ $event['badge'] }} · {{ $event['subtitle'] }}
                                             </div>
                                         </a>
                                     @endforeach
 
                                     @if($day['events']->count() > 4)
-                                        <div class="rounded-xl bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500">
+                                        <div class="schedule-more">
                                             +{{ $day['events']->count() - 4 }} aktivitas lainnya
                                         </div>
                                     @endif
@@ -157,69 +183,271 @@
         </div>
     </section>
 
-    <aside class="space-y-4">
-        <section class="rounded-3xl border bg-white p-5 shadow-sm">
-            <h2 class="font-black text-slate-950">
-                Aktivitas Terdekat
-            </h2>
-
-            <div class="mt-4 space-y-3">
-                @forelse($upcomingEvents as $event)
-                    @php
-                        $eventClass = match ($event['variant']) {
-                            'praktikum' => 'border-blue-200 bg-blue-50 text-blue-700',
-                            'tugas' => 'border-amber-200 bg-amber-50 text-amber-700',
-                            'absensi' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                            default => 'border-slate-200 bg-slate-50 text-slate-700',
-                        };
-                    @endphp
-
-                    <a href="{{ $event['url'] ?: '#' }}"
-                       class="block rounded-2xl border p-4 transition hover:shadow-sm {{ $eventClass }}">
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-black uppercase">
-                                {{ $event['badge'] }}
-                            </span>
-
-                            <span class="text-xs font-bold">
-                                {{ \Carbon\Carbon::parse($event['date'])->format('d M') }}
-                            </span>
-                        </div>
-
-                        <h3 class="mt-3 font-black">
-                            {{ $event['title'] }}
-                        </h3>
-
-                        <p class="mt-1 text-sm font-semibold opacity-80">
-                            @if($event['time'])
-                                {{ $event['time'] }} ·
-                            @endif
-
-                            {{ $event['subtitle'] }}
-                        </p>
-                    </a>
-                @empty
-                    @include('partials.empty-state', [
-                        'title' => 'Belum ada aktivitas',
-                        'description' => 'Aktivitas praktikum, tugas, atau absensi akan muncul di sini.',
-                    ])
-                @endforelse
+    <aside style="display: grid; gap: 18px; align-content: start;">
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Aktivitas Terdekat</h2>
+                    <div class="section-subtitle">
+                        Aktivitas praktikum, tugas, atau absensi yang akan datang.
+                    </div>
+                </div>
             </div>
+
+            @if($upcomingEvents->isEmpty())
+                <div class="empty-state">
+                    <div style="font-size: 30px; margin-bottom: 8px;">🗓️</div>
+
+                    <h3 class="empty-state-title">
+                        Belum ada aktivitas
+                    </h3>
+
+                    <p class="empty-state-text">
+                        Aktivitas praktikum, tugas, atau absensi akan muncul di sini.
+                    </p>
+                </div>
+            @else
+                <div class="list-stack">
+                    @foreach($upcomingEvents as $event)
+                        @php
+                            $eventVariant = $event['variant'] ?? 'default';
+                        @endphp
+
+                        <a
+                            href="{{ $event['url'] ?: '#' }}"
+                            class="list-item"
+                        >
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                                    <span class="status-pill schedule-pill-{{ $eventVariant }}">
+                                        {{ $event['badge'] }}
+                                    </span>
+
+                                    <span class="status-pill status-muted">
+                                        {{ Carbon::parse($event['date'])->format('d M') }}
+                                    </span>
+                                </div>
+
+                                <h3 class="item-title">
+                                    {{ $event['title'] }}
+                                </h3>
+
+                                <div class="item-meta">
+                                    @if($event['time'])
+                                        {{ $event['time'] }} ·
+                                    @endif
+
+                                    {{ $event['subtitle'] }}
+                                </div>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
         </section>
 
-        <section class="rounded-3xl border bg-white p-5 text-sm text-slate-500 shadow-sm">
-            <h2 class="font-black text-slate-950">
-                Catatan
-            </h2>
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Catatan</h2>
+                    <div class="section-subtitle">
+                        Informasi format jadwal kelas praktikum.
+                    </div>
+                </div>
+            </div>
 
-            <p class="mt-2">
-                Jadwal praktikum diambil dari data kelas. Agar muncul di kalender, format jadwal kelas sebaiknya berisi nama hari, misalnya:
+            <p class="item-meta" style="margin-top: 0; line-height: 1.7;">
+                Jadwal praktikum diambil dari data kelas. Agar muncul di kalender,
+                format jadwal kelas sebaiknya berisi nama hari, misalnya:
             </p>
 
-            <div class="mt-3 rounded-2xl bg-slate-50 p-3 font-mono text-xs text-slate-700">
+            <div
+                style="
+                    margin-top: 12px;
+                    padding: 14px;
+                    border-radius: 16px;
+                    background: #f8fafc;
+                    border: 1px solid var(--line);
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 13px;
+                    color: #334155;
+                "
+            >
                 Senin, 10:00-12:00
             </div>
         </section>
     </aside>
 </div>
+
+<style>
+    .schedule-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 22px;
+        align-items: start;
+    }
+
+    .schedule-scroll {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .schedule-calendar {
+        min-width: 900px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: #ffffff;
+    }
+
+    .schedule-week-header,
+    .schedule-week-row {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .schedule-week-row {
+        border-top: 1px solid var(--line);
+    }
+
+    .schedule-day-name {
+        padding: 13px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 900;
+        color: #334155;
+        background: #f8fafc;
+        border-right: 1px solid var(--line);
+    }
+
+    .schedule-day-name:last-child {
+        border-right: 0;
+    }
+
+    .schedule-day {
+        min-height: 150px;
+        padding: 12px;
+        background: #ffffff;
+        border-right: 1px solid var(--line);
+    }
+
+    .schedule-day:last-child {
+        border-right: 0;
+    }
+
+    .schedule-day-muted {
+        background: #f8fafc;
+        color: #94a3b8;
+    }
+
+    .schedule-day-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .schedule-date {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 950;
+        color: #334155;
+    }
+
+    .schedule-date-today {
+        background: var(--primary);
+        color: #ffffff;
+    }
+
+    .schedule-events {
+        display: grid;
+        gap: 7px;
+    }
+
+    .schedule-event {
+        display: block;
+        padding: 8px 9px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1.35;
+        transition: 0.16s ease;
+    }
+
+    .schedule-event:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .schedule-event-title,
+    .schedule-event-meta {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .schedule-event-meta {
+        margin-top: 3px;
+        font-size: 10px;
+        opacity: 0.78;
+    }
+
+    .schedule-event-praktikum,
+    .schedule-pill-praktikum {
+        background: #e0f2fe;
+        border-color: #bae6fd;
+        color: #075985;
+    }
+
+    .schedule-event-tugas,
+    .schedule-pill-tugas {
+        background: #fef3c7;
+        border-color: #fde68a;
+        color: #92400e;
+    }
+
+    .schedule-event-absensi,
+    .schedule-pill-absensi {
+        background: #dcfce7;
+        border-color: #bbf7d0;
+        color: #166534;
+    }
+
+    .schedule-event-default,
+    .schedule-pill-default {
+        background: #f1f5f9;
+        border-color: #e2e8f0;
+        color: #334155;
+    }
+
+    .schedule-more {
+        padding: 7px 9px;
+        border-radius: 12px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 900;
+    }
+
+    @media (max-width: 1100px) {
+        .schedule-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .section-header {
+            display: block;
+        }
+
+        .section-header .actions-inline {
+            margin-top: 12px;
+        }
+    }
+</style>
 @endsection

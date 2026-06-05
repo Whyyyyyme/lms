@@ -1,204 +1,328 @@
-@extends('layouts.app', ['title' => $material->title])
+@extends('layouts.app')
+
+@section('title', $material->title)
 
 @section('content')
-    @include('partials.page-header', [
-        'eyebrow' => 'Mahasiswa',
-        'title' => $material->title,
-        'description' => $material->kelas?->course?->name . ' - ' . $material->kelas?->name,
-    ])
+@php
+    use Illuminate\Support\Facades\Route;
 
-    <div class="mb-5 flex flex-wrap gap-2">
-        @if ($material->kelas?->course)
-            <a href="{{ route('student.materials.course', $material->kelas->course) }}"
-                class="inline-flex rounded-2xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                ← Kembali ke Materi {{ $material->kelas->course->name }}
-            </a>
-        @else
-            <a href="{{ route('student.materials.index') }}"
-                class="inline-flex rounded-2xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                ← Kembali ke Materi
-            </a>
+    $timezone = config('app.timezone', 'Asia/Jakarta');
+
+    $course = $material->kelas?->course;
+    $class = $material->kelas;
+
+    $viewer = $viewer ?? [];
+    $viewerType = $viewer['type'] ?? null;
+    $embedUrl = $viewer['embed_url'] ?? null;
+    $downloadUrl = $viewer['download_url'] ?? null;
+    $externalUrl = $viewer['url'] ?? null;
+    $viewerMessage = $viewer['message'] ?? 'Materi ini belum memiliki file atau link.';
+
+    if ($course && Route::has('student.materials.course')) {
+        $backUrl = route('student.materials.course', $course);
+        $backLabel = '← Kembali ke Materi '.$course->name;
+    } elseif (Route::has('student.materials.index')) {
+        $backUrl = route('student.materials.index');
+        $backLabel = '← Kembali ke Materi';
+    } elseif (Route::has('student.dashboard')) {
+        $backUrl = route('student.dashboard');
+        $backLabel = '← Dashboard';
+    } else {
+        $backUrl = '#';
+        $backLabel = '← Kembali';
+    }
+
+    $publishedAt = $material->published_at
+        ? $material->published_at->timezone($timezone)->format('d M Y H:i') . ' WIB'
+        : '-';
+@endphp
+
+<section class="dashboard-hero">
+    <div class="eyebrow">Mahasiswa</div>
+
+    <h1>{{ $material->title }}</h1>
+
+    <p>
+        {{ $course?->name ?? 'Mata kuliah tidak ditemukan' }}
+
+        @if($class?->name)
+            · {{ $class->name }}
         @endif
 
-        @if (!empty($viewer['download_url']) && $viewer['type'] !== 'youtube')
-            <a href="{{ $viewer['download_url'] }}"
-                class="inline-flex rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
+        @if($course?->studySemester)
+            · {{ $course->studySemester->name }}
+        @endif
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $backUrl }}" class="btn">
+            {{ $backLabel }}
+        </a>
+
+        @if(!empty($downloadUrl) && $viewerType !== 'youtube')
+            <a href="{{ $downloadUrl }}" class="btn btn-primary">
                 Download Materi
             </a>
         @endif
     </div>
+</section>
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px]">
-        <section class="rounded-3xl border bg-white p-5 shadow-sm">
-            @if ($viewer['type'] === 'pdf')
-                <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="font-black text-slate-950">
-                            PDF Reader
-                        </h2>
-
-                        <p class="text-sm text-slate-500">
-                            Materi PDF dapat dibaca langsung di halaman ini.
-                        </p>
+<div class="material-view-layout">
+    <section class="card">
+        @if($viewerType === 'pdf')
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">PDF Reader</h2>
+                    <div class="section-subtitle">
+                        Materi PDF dapat dibaca langsung di halaman ini.
                     </div>
-
-                    @if (!empty($viewer['download_url']))
-                        <a href="{{ $viewer['download_url'] }}"
-                            class="rounded-2xl border bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
-                            Download
-                        </a>
-                    @endif
                 </div>
 
-                <div class="overflow-hidden rounded-3xl border bg-slate-100">
-                    <iframe src="{{ $viewer['embed_url'] }}#toolbar=1&navpanes=0&scrollbar=1" class="h-[75vh] w-full"
-                        title="PDF Reader {{ $material->title }}">
-                    </iframe>
-                </div>
-            @elseif($viewer['type'] === 'video_iframe')
-                <div class="mb-4">
-                    <h2 class="font-black text-slate-950">
-                        Video Pembelajaran
-                    </h2>
+                @if(!empty($downloadUrl))
+                    <a href="{{ $downloadUrl }}" class="btn btn-sm">
+                        Download
+                    </a>
+                @endif
+            </div>
 
-                    <p class="text-sm text-slate-500">
+            <div
+                style="
+                    overflow: hidden;
+                    border: 1px solid var(--line);
+                    border-radius: 20px;
+                    background: #f1f5f9;
+                "
+            >
+                <iframe
+                    src="{{ $embedUrl }}#toolbar=1&navpanes=0&scrollbar=1"
+                    style="width: 100%; height: 75vh; border: 0;"
+                    title="PDF Reader {{ $material->title }}"
+                ></iframe>
+            </div>
+        @elseif($viewerType === 'video_iframe')
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Video Pembelajaran</h2>
+                    <div class="section-subtitle">
                         Video dapat diputar langsung di halaman ini.
-                    </p>
+                    </div>
                 </div>
+            </div>
 
-                <div class="overflow-hidden rounded-3xl border bg-black">
-                    <iframe src="{{ $viewer['embed_url'] }}" class="aspect-video w-full"
-                        title="Video {{ $material->title }}"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowfullscreen>
-                    </iframe>
-                </div>
-            @elseif($viewer['type'] === 'video_file')
-                <div class="mb-4">
-                    <h2 class="font-black text-slate-950">
-                        Video Pembelajaran
-                    </h2>
-
-                    <p class="text-sm text-slate-500">
+            <div
+                style="
+                    overflow: hidden;
+                    border: 1px solid var(--line);
+                    border-radius: 20px;
+                    background: #000000;
+                    aspect-ratio: 16 / 9;
+                "
+            >
+                <iframe
+                    src="{{ $embedUrl }}"
+                    style="width: 100%; height: 100%; border: 0;"
+                    title="Video {{ $material->title }}"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                ></iframe>
+            </div>
+        @elseif($viewerType === 'video_file')
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Video Pembelajaran</h2>
+                    <div class="section-subtitle">
                         File video dapat diputar langsung di halaman ini.
-                    </p>
+                    </div>
                 </div>
+            </div>
 
-                <div class="overflow-hidden rounded-3xl border bg-black">
-                    <video controls class="aspect-video w-full bg-black">
-                        <source src="{{ $viewer['embed_url'] }}">
-                        Browser Anda tidak mendukung pemutar video.
-                    </video>
-                </div>
-            @elseif($viewer['type'] === 'file')
-                <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-                    <h2 class="font-black text-amber-900">
-                        Preview tidak tersedia
-                    </h2>
+            <div
+                style="
+                    overflow: hidden;
+                    border: 1px solid var(--line);
+                    border-radius: 20px;
+                    background: #000000;
+                "
+            >
+                <video controls style="width: 100%; aspect-ratio: 16 / 9; background: #000000;">
+                    <source src="{{ $embedUrl }}">
+                    Browser Anda tidak mendukung pemutar video.
+                </video>
+            </div>
+        @elseif($viewerType === 'file')
+            <div
+                style="
+                    padding: 22px;
+                    border: 1px solid #fde68a;
+                    border-radius: 20px;
+                    background: var(--warning-soft);
+                    color: #92400e;
+                "
+            >
+                <h2 class="section-title" style="color: #78350f;">
+                    Preview tidak tersedia
+                </h2>
 
-                    <p class="mt-2 text-sm text-amber-800">
-                        {{ $viewer['message'] }}
-                    </p>
+                <p style="margin-top: 8px; line-height: 1.65;">
+                    {{ $viewerMessage }}
+                </p>
 
-                    @if (!empty($viewer['download_url']))
-                        <a href="{{ $viewer['download_url'] }}"
-                            class="mt-4 inline-flex rounded-2xl bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700">
+                @if(!empty($downloadUrl))
+                    <div style="margin-top: 16px;">
+                        <a href="{{ $downloadUrl }}" class="btn btn-primary">
                             Download File
                         </a>
-                    @endif
-                </div>
-            @elseif($viewer['type'] === 'link')
-                <div class="rounded-3xl border border-blue-200 bg-blue-50 p-6">
-                    <h2 class="font-black text-blue-900">
-                        Link Materi
-                    </h2>
+                    </div>
+                @endif
+            </div>
+        @elseif($viewerType === 'link')
+            <div
+                style="
+                    padding: 22px;
+                    border: 1px solid #bfdbfe;
+                    border-radius: 20px;
+                    background: var(--info-soft);
+                    color: #075985;
+                "
+            >
+                <h2 class="section-title" style="color: #0c4a6e;">
+                    Link Materi
+                </h2>
 
-                    <p class="mt-2 text-sm text-blue-800">
-                        Materi ini berupa link eksternal. Jika link tersebut bukan YouTube, Google Drive, Vimeo, Loom, PDF,
-                        atau file video langsung, sistem tidak bisa menampilkannya langsung.
-                    </p>
+                <p style="margin-top: 8px; line-height: 1.65;">
+                    Materi ini berupa link eksternal. Jika link tersebut bukan YouTube, Google Drive,
+                    Vimeo, Loom, PDF, atau file video langsung, sistem tidak bisa menampilkannya langsung.
+                </p>
 
-                    <a href="{{ $viewer['url'] }}" target="_blank" rel="noopener"
-                        class="mt-4 inline-flex rounded-2xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                        Buka Link
-                    </a>
-                </div>
-            @else
-                <div class="rounded-3xl border bg-slate-50 p-6">
-                    <h2 class="font-black text-slate-900">
-                        Materi belum tersedia
-                    </h2>
+                @if(!empty($externalUrl))
+                    <div style="margin-top: 16px;">
+                        <a
+                            href="{{ $externalUrl }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="btn btn-primary"
+                        >
+                            Buka Link
+                        </a>
+                    </div>
+                @endif
+            </div>
+        @else
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">📘</div>
 
-                    <p class="mt-2 text-sm text-slate-500">
-                        {{ $viewer['message'] }}
-                    </p>
+                <h3 class="empty-state-title">
+                    Materi belum tersedia
+                </h3>
+
+                <p class="empty-state-text">
+                    {{ $viewerMessage }}
+                </p>
+            </div>
+        @endif
+    </section>
+
+    <aside style="display: grid; gap: 18px; align-content: start;">
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Informasi Materi</h2>
+                    <div class="section-subtitle">
+                        Detail mata kuliah, kelas, tipe materi, dan waktu publikasi.
+                    </div>
                 </div>
-            @endif
+
+                <span class="status-pill status-info">
+                    {{ strtoupper($material->type ?? $viewerType ?? 'Materi') }}
+                </span>
+            </div>
+
+            <div class="list-stack">
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Mata Kuliah</h3>
+                        <div class="item-meta">
+                            {{ $course?->name ?? '-' }}
+
+                            @if($course?->code)
+                                <br>
+                                Kode: {{ $course->code }}
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Kelas</h3>
+                        <div class="item-meta">
+                            {{ $class?->name ?? '-' }}
+
+                            @if($course?->studySemester)
+                                <br>
+                                Semester {{ $course->studySemester->name }}
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Dipublikasikan</h3>
+                        <div class="item-meta">
+                            {{ $publishedAt }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div>
+                        <h3 class="item-title">Dibuat oleh</h3>
+                        <div class="item-meta">
+                            {{ $material->creator?->name ?? '-' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <aside class="space-y-4">
-            <section class="rounded-3xl border bg-white p-5 shadow-sm">
-                <h2 class="font-black text-slate-950">
-                    Informasi Materi
-                </h2>
-
-                <div class="mt-4 space-y-3 text-sm text-slate-600">
-                    <div>
-                        <p class="text-xs font-bold uppercase text-slate-400">
-                            Mata Kuliah
-                        </p>
-                        <p class="font-semibold text-slate-800">
-                            {{ $material->kelas?->course?->name ?? '-' }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-bold uppercase text-slate-400">
-                            Kelas
-                        </p>
-                        <p class="font-semibold text-slate-800">
-                            {{ $material->kelas?->name ?? '-' }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-bold uppercase text-slate-400">
-                            Tipe Materi
-                        </p>
-                        <p class="font-semibold text-slate-800">
-                            {{ strtoupper($material->type ?? $viewer['type']) }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-bold uppercase text-slate-400">
-                            Dipublikasikan
-                        </p>
-                        <p class="font-semibold text-slate-800">
-                            {{ $material->published_at?->format('d M Y H:i') ?? '-' }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-bold uppercase text-slate-400">
-                            Dibuat oleh
-                        </p>
-                        <p class="font-semibold text-slate-800">
-                            {{ $material->creator?->name ?? '-' }}
-                        </p>
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Deskripsi</h2>
+                    <div class="section-subtitle">
+                        Ringkasan atau catatan dari asisten.
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <section class="rounded-3xl border bg-white p-5 shadow-sm">
-                <h2 class="font-black text-slate-950">
-                    Deskripsi
-                </h2>
+            <div
+                style="
+                    padding: 16px;
+                    border: 1px solid var(--line);
+                    border-radius: 18px;
+                    background: #f8fafc;
+                    color: #334155;
+                    line-height: 1.75;
+                    white-space: pre-line;
+                "
+            >{{ $material->description ?: 'Tidak ada deskripsi.' }}</div>
+        </section>
+    </aside>
+</div>
 
-                <div class="prose prose-sm mt-3 max-w-none text-slate-600">
-                    {!! nl2br(e($material->description ?: 'Tidak ada deskripsi.')) !!}
-                </div>
-            </section>
-        </aside>
-    </div>
+<style>
+    .material-view-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+        gap: 22px;
+        align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+        .material-view-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 @endsection

@@ -1,299 +1,522 @@
-@extends('layouts.app', ['title' => $class->course?->name ?? 'Detail Mata Kuliah'])
+@extends('layouts.app')
 
 @section('title', $class->course?->name ?? 'Detail Mata Kuliah')
 @section('page_title', $class->course?->name ?? 'Detail Mata Kuliah')
 
 @section('content')
 @php
+    use Illuminate\Support\Facades\Route;
+
     $course = $class->course;
     $timezone = config('app.timezone', 'Asia/Jakarta');
+
+    $backUrl = Route::has('student.courses.index')
+        ? route('student.courses.index')
+        : route('student.dashboard');
+
+    $scheduleUrl = Route::has('student.schedule.index')
+        ? route('student.schedule.index', ['mata_kuliah' => $course?->id])
+        : '#';
 @endphp
 
-<div class="mb-5">
-    <a href="{{ route('student.courses.index') }}" class="inline-flex rounded-2xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-        ← Kembali ke Mata Kuliah Saya
-    </a>
-</div>
+<section class="dashboard-hero">
+    <div class="eyebrow">Mahasiswa</div>
 
-<section class="mb-6 rounded-3xl border border-slate-200 bg-slate-950 p-6 text-white shadow-sm">
-    <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+    <h1>
+        {{ $course?->name ?? 'Mata kuliah tidak ditemukan' }}
+    </h1>
+
+    <p>
+        {{ $course?->code ? $course->code . ' · ' : '' }}
+        {{ $class->name }}
+
+        @if($course?->studySemester)
+            · {{ $course->studySemester->name }}
+        @endif
+
+        @if($course?->academicYear)
+            · {{ $course->academicYear->name }}
+        @endif
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ $backUrl }}" class="btn">
+            ← Mata Kuliah Saya
+        </a>
+
+        <a href="#materi" class="btn btn-primary">
+            📘 Lihat Materi
+        </a>
+
+        <a href="#tugas" class="btn">
+            📝 Tugas
+        </a>
+
+        <a href="#absensi" class="btn">
+            ✅ Absensi
+        </a>
+    </div>
+</section>
+
+<section class="card" style="margin-bottom: 18px;">
+    <div class="section-header">
         <div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-full bg-indigo-500 px-3 py-1 text-xs font-bold text-white">
-                    {{ $course?->code ?? 'Mata Kuliah' }}
-                </span>
-
-                @if($course?->studySemester)
-                    <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-                        {{ $course->studySemester->name }}
-                    </span>
-                @endif
-
-                @if($course?->academicYear)
-                    <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-                        {{ $course->academicYear->name }}
-                    </span>
-                @endif
-            </div>
-
-            <h1 class="mt-5 text-3xl font-black tracking-tight md:text-4xl">
-                {{ $course?->name ?? 'Mata kuliah tidak ditemukan' }}
-            </h1>
-
-            <div class="mt-4 flex flex-wrap gap-4 text-sm text-slate-300">
-                <span>Kelas: <strong class="text-white">{{ $class->name }}</strong></span>
-
-                @if($class->assistant)
-                    <span>Asisten: <strong class="text-white">{{ $class->assistant->name }}</strong></span>
-                @endif
-
-                @if($class->schedule)
-                    <span>Jadwal: <strong class="text-white">{{ $class->schedule }}</strong></span>
-                @endif
-
-                @if($class->room)
-                    <span>Ruang: <strong class="text-white">{{ $class->room }}</strong></span>
-                @endif
+            <h2 class="section-title">Informasi Kelas Praktikum</h2>
+            <div class="section-subtitle">
+                Detail kelas, asisten, jadwal, ruang, dan progress tugas pada mata kuliah ini.
             </div>
         </div>
 
-        <div class="rounded-3xl bg-white/10 p-4 text-sm text-slate-200">
-            <p class="font-bold text-white">Progress Tugas</p>
-            <p class="mt-1 text-3xl font-black text-white">{{ $summary['progress'] ?? 0 }}%</p>
-            <p class="mt-1">{{ $summary['submitted_assignments'] ?? 0 }} dari {{ $summary['total_assignments'] ?? 0 }} tugas dikumpulkan</p>
+        <span class="status-pill status-info">
+            {{ $class->name }}
+        </span>
+    </div>
+
+    <div class="grid grid-4">
+        <div class="stat-card">
+            <div class="stat-label">Kode Mata Kuliah</div>
+            <div class="stat-value" style="font-size: 22px;">
+                {{ $course?->code ?? '-' }}
+            </div>
+            <div class="stat-note">Kode identitas mata kuliah.</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Asisten</div>
+            <div class="stat-value" style="font-size: 20px;">
+                {{ $class->assistant?->name ?? '-' }}
+            </div>
+            <div class="stat-note">Asisten pengampu kelas ini.</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Jadwal</div>
+            <div class="stat-value" style="font-size: 20px;">
+                {{ $class->schedule ?: '-' }}
+            </div>
+            <div class="stat-note">Jadwal praktikum kelas.</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Ruang</div>
+            <div class="stat-value" style="font-size: 22px;">
+                {{ $class->room ?: '-' }}
+            </div>
+            <div class="stat-note">Ruang praktikum.</div>
         </div>
     </div>
 </section>
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-    @include('partials.stat-card', ['label' => 'Materi', 'value' => $summary['total_materials'] ?? 0, 'icon' => '📘'])
-    @include('partials.stat-card', ['label' => 'Tugas', 'value' => $summary['total_assignments'] ?? 0, 'icon' => '📝'])
-    @include('partials.stat-card', ['label' => 'Belum Submit', 'value' => $summary['pending_assignments'] ?? 0, 'icon' => '⏳'])
-    @include('partials.stat-card', ['label' => 'Absensi Buka', 'value' => $summary['open_attendances'] ?? 0, 'icon' => '✅'])
-    @include('partials.stat-card', ['label' => 'Rata-rata Nilai', 'value' => ($summary['average_score'] ?? null) !== null ? number_format((float) $summary['average_score'], 1) : '-', 'icon' => '⭐'])
+<div class="grid grid-5" style="margin-bottom: 18px;">
+    <div class="stat-card">
+        <div class="stat-label">Materi</div>
+        <div class="stat-value">{{ $summary['total_materials'] ?? 0 }}</div>
+        <div class="stat-note">Materi yang tersedia.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Tugas</div>
+        <div class="stat-value">{{ $summary['total_assignments'] ?? 0 }}</div>
+        <div class="stat-note">Total tugas kelas.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Belum Submit</div>
+        <div class="stat-value">{{ $summary['pending_assignments'] ?? 0 }}</div>
+        <div class="stat-note">Tugas yang belum dikumpulkan.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Absensi Buka</div>
+        <div class="stat-value">{{ $summary['open_attendances'] ?? 0 }}</div>
+        <div class="stat-note">Sesi absensi aktif.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Rata-rata Nilai</div>
+        <div class="stat-value">
+            {{ ($summary['average_score'] ?? null) !== null ? number_format((float) $summary['average_score'], 1) : '-' }}
+        </div>
+        <div class="stat-note">
+            Progress tugas: {{ $summary['progress'] ?? 0 }}%.
+        </div>
+    </div>
 </div>
 
-<div class="grid gap-6 xl:grid-cols-3">
-    <section id="materi" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-        <div class="mb-4 flex items-center justify-between gap-3">
+<div class="grid grid-3">
+    <section id="materi" class="card" style="grid-column: span 2;">
+        <div class="section-header">
             <div>
-                <h2 class="text-xl font-black text-slate-950">Materi Pembelajaran</h2>
-                <p class="mt-1 text-sm text-slate-500">Materi yang sudah dipublikasikan oleh asisten untuk kelas ini.</p>
+                <h2 class="section-title">Materi Pembelajaran</h2>
+                <div class="section-subtitle">
+                    Materi yang sudah dipublikasikan oleh asisten untuk kelas ini.
+                </div>
             </div>
         </div>
 
-        <div class="space-y-3">
-            @forelse($materials as $material)
-                <a href="{{ route('student.materials.show', $material) }}"
-                   class="block rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-indigo-50">
-                    <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+        @if($materials->isEmpty())
+            <div class="empty-state">
+                <div style="font-size: 34px; margin-bottom: 8px;">📘</div>
+
+                <h3 class="empty-state-title">
+                    Belum ada materi
+                </h3>
+
+                <p class="empty-state-text">
+                    Materi untuk kelas ini akan tampil setelah dipublikasikan oleh asisten.
+                </p>
+            </div>
+        @else
+            <div class="list-stack">
+                @foreach($materials as $material)
+                    <a href="{{ route('student.materials.show', $material) }}" class="list-item">
                         <div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                                <span class="course-code">
                                     {{ strtoupper($material->type ?? 'materi') }}
                                 </span>
-                                <span class="text-xs text-slate-400">
+
+                                <span class="status-pill status-muted">
                                     {{ $material->published_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
                                 </span>
                             </div>
 
-                            <h3 class="mt-3 font-bold text-slate-950">{{ $material->title }}</h3>
+                            <h3 class="item-title">
+                                {{ $material->title }}
+                            </h3>
 
                             @if($material->description)
-                                <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $material->description }}</p>
+                                <div class="item-meta">
+                                    {{ \Illuminate\Support\Str::limit($material->description, 130) }}
+                                </div>
                             @endif
                         </div>
 
-                        <span class="text-sm font-bold text-indigo-600">Buka materi →</span>
-                    </div>
-                </a>
-            @empty
-                @include('partials.empty-state', [
-                    'title' => 'Belum ada materi',
-                    'description' => 'Materi untuk kelas ini akan tampil setelah dipublikasikan oleh asisten.',
-                    'icon' => '📘',
-                ])
-            @endforelse
-        </div>
+                        <span class="status-pill status-info">
+                            Buka materi
+                        </span>
+                    </a>
+                @endforeach
+            </div>
 
-        <div class="mt-5">
-            {{ $materials->links() }}
-        </div>
+            <div style="margin-top: 18px;">
+                {{ $materials->links() }}
+            </div>
+        @endif
     </section>
 
-    <aside class="space-y-6">
-        <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-xl font-black text-slate-950">Pengumuman</h2>
-
-            <div class="mt-4 space-y-3">
-                @forelse($announcements as $announcement)
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="font-bold text-slate-950">{{ $announcement->title }}</p>
-                        <p class="mt-2 line-clamp-4 text-sm leading-6 text-slate-600">{{ $announcement->content }}</p>
-                        <p class="mt-2 text-xs text-slate-400">
-                            {{ $announcement->created_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
-                        </p>
+    <aside style="display: grid; gap: 18px; align-content: start;">
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Pengumuman</h2>
+                    <div class="section-subtitle">
+                        Informasi dari asisten untuk kelas ini.
                     </div>
-                @empty
-                    <p class="text-sm text-slate-500">Belum ada pengumuman untuk kelas ini.</p>
-                @endforelse
+                </div>
             </div>
+
+            @if($announcements->isEmpty())
+                <div class="empty-state">
+                    <div style="font-size: 30px; margin-bottom: 8px;">📢</div>
+
+                    <h3 class="empty-state-title">
+                        Belum ada pengumuman
+                    </h3>
+
+                    <p class="empty-state-text">
+                        Belum ada pengumuman untuk kelas ini.
+                    </p>
+                </div>
+            @else
+                <div class="list-stack">
+                    @foreach($announcements as $announcement)
+                        <div class="list-item">
+                            <div>
+                                <h3 class="item-title">
+                                    {{ $announcement->title }}
+                                </h3>
+
+                                <div class="item-meta">
+                                    {{ \Illuminate\Support\Str::limit($announcement->content, 130) }}
+                                    <br>
+                                    {{ $announcement->created_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </section>
 
-        <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-xl font-black text-slate-950">Navigasi Kelas</h2>
-            <div class="mt-4 grid gap-2">
-                <a href="#materi" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Materi</a>
-                <a href="#tugas" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Tugas</a>
-                <a href="#absensi" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Absensi</a>
-                <a href="{{ route('student.schedule.index', ['mata_kuliah' => $course?->id]) }}" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Jadwal/Kalender</a>
+        <section class="card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Navigasi Kelas</h2>
+                    <div class="section-subtitle">
+                        Lompat ke bagian halaman.
+                    </div>
+                </div>
+            </div>
+
+            <div class="list-stack">
+                <a href="#materi" class="list-item">
+                    <div>
+                        <h3 class="item-title">Materi</h3>
+                        <div class="item-meta">Lihat materi kelas.</div>
+                    </div>
+                    <span class="status-pill status-info">Buka</span>
+                </a>
+
+                <a href="#tugas" class="list-item">
+                    <div>
+                        <h3 class="item-title">Tugas</h3>
+                        <div class="item-meta">Lihat tugas kelas.</div>
+                    </div>
+                    <span class="status-pill status-info">Buka</span>
+                </a>
+
+                <a href="#absensi" class="list-item">
+                    <div>
+                        <h3 class="item-title">Absensi</h3>
+                        <div class="item-meta">Lihat sesi absensi.</div>
+                    </div>
+                    <span class="status-pill status-info">Buka</span>
+                </a>
+
+                @if(Route::has('student.schedule.index'))
+                    <a href="{{ $scheduleUrl }}" class="list-item">
+                        <div>
+                            <h3 class="item-title">Jadwal/Kalender</h3>
+                            <div class="item-meta">Lihat jadwal praktikum.</div>
+                        </div>
+                        <span class="status-pill status-info">Buka</span>
+                    </a>
+                @endif
             </div>
         </section>
     </aside>
 </div>
 
-<section id="tugas" class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="mb-4 flex items-center justify-between gap-3">
+<section id="tugas" class="card" style="margin-top: 22px;">
+    <div class="section-header">
         <div>
-            <h2 class="text-xl font-black text-slate-950">Tugas Kelas</h2>
-            <p class="mt-1 text-sm text-slate-500">Upload submission dari halaman detail tugas.</p>
+            <h2 class="section-title">Tugas Kelas</h2>
+            <div class="section-subtitle">
+                Upload submission dilakukan dari halaman detail tugas.
+            </div>
         </div>
     </div>
 
-    <div class="space-y-3">
-        @forelse($assignments as $assignment)
-            @php
-                $submission = $assignment->submissions->first();
-                $submitted = $submission !== null;
-                $isExpired = $assignment->deadline && $assignment->deadline->lessThan(now());
-            @endphp
+    @if($assignments->isEmpty())
+        <div class="empty-state">
+            <div style="font-size: 34px; margin-bottom: 8px;">📝</div>
 
-            <a href="{{ route('student.assignments.show', $assignment) }}"
-               class="block rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-indigo-50">
-                <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+            <h3 class="empty-state-title">
+                Belum ada tugas
+            </h3>
+
+            <p class="empty-state-text">
+                Tugas yang dipublikasikan asisten akan tampil di bagian ini.
+            </p>
+        </div>
+    @else
+        <div class="list-stack">
+            @foreach($assignments as $assignment)
+                @php
+                    $submission = $assignment->submissions->first();
+                    $submitted = $submission !== null;
+                    $isExpired = $assignment->deadline && $assignment->deadline->lessThan(now());
+                @endphp
+
+                <a href="{{ route('student.assignments.show', $assignment) }}" class="list-item">
                     <div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $submitted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <span class="status-pill {{ $submitted ? 'status-success' : 'status-warning' }}">
                                 {{ $submitted ? 'Sudah dikumpulkan' : 'Belum dikumpulkan' }}
                             </span>
 
                             @if($isExpired)
-                                <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700">Deadline lewat</span>
+                                <span class="status-pill status-danger">
+                                    Deadline lewat
+                                </span>
                             @endif
                         </div>
 
-                        <h3 class="mt-3 font-bold text-slate-950">{{ $assignment->title }}</h3>
+                        <h3 class="item-title">
+                            {{ $assignment->title }}
+                        </h3>
 
                         @if($assignment->description)
-                            <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $assignment->description }}</p>
+                            <div class="item-meta">
+                                {{ \Illuminate\Support\Str::limit($assignment->description, 130) }}
+                            </div>
                         @endif
 
-                        <p class="mt-2 text-xs font-semibold text-slate-500">
-                            Deadline: {{ $assignment->deadline?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
-                        </p>
+                        <div class="item-meta">
+                            Deadline:
+                            {{ $assignment->deadline?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
+                        </div>
                     </div>
 
-                    <span class="text-sm font-bold text-indigo-600">Buka tugas →</span>
-                </div>
-            </a>
-        @empty
-            @include('partials.empty-state', [
-                'title' => 'Belum ada tugas',
-                'description' => 'Tugas yang dipublikasikan asisten akan tampil di bagian ini.',
-                'icon' => '📝',
-            ])
-        @endforelse
-    </div>
+                    <span class="status-pill status-info">
+                        Buka tugas
+                    </span>
+                </a>
+            @endforeach
+        </div>
 
-    <div class="mt-5">
-        {{ $assignments->links() }}
-    </div>
+        <div style="margin-top: 18px;">
+            {{ $assignments->links() }}
+        </div>
+    @endif
 </section>
 
-<section id="absensi" class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="mb-4 flex items-center justify-between gap-3">
+<section id="absensi" class="card" style="margin-top: 22px;">
+    <div class="section-header">
         <div>
-            <h2 class="text-xl font-black text-slate-950">Absensi Kelas</h2>
-            <p class="mt-1 text-sm text-slate-500">Check-in hanya tersedia saat waktu absensi sedang dibuka.</p>
+            <h2 class="section-title">Absensi Kelas</h2>
+            <div class="section-subtitle">
+                Check-in hanya tersedia saat waktu absensi sedang dibuka.
+            </div>
         </div>
     </div>
 
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Waktu Absensi</th>
-                    <th>Status Sesi</th>
-                    <th>Status Kamu</th>
-                    <th>Check-in</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($attendances as $attendance)
-                    @php
-                        $record = $attendance->records->first();
-                        $studentStatus = $record?->status ?? 'alpha';
-                        $studentStatusLabel = match ($studentStatus) {
-                            'hadir' => 'Hadir',
-                            'izin' => 'Izin',
-                            default => 'Alpha',
-                        };
-                        $studentStatusClass = match ($studentStatus) {
-                            'hadir' => 'badge-green',
-                            'izin' => 'badge-blue',
-                            default => 'badge-red',
-                        };
-                        $sessionStatus = method_exists($attendance, 'statusLabel') ? $attendance->statusLabel() : ($attendance->is_open ? 'Sedang Dibuka' : 'Ditutup');
-                        $sessionStatusClass = method_exists($attendance, 'statusBadgeClass') ? $attendance->statusBadgeClass() : ($attendance->is_open ? 'badge-green' : 'badge-red');
-                        $canCheckIn = method_exists($attendance, 'isWithinOpenWindow')
-                            ? $attendance->isWithinOpenWindow() && $studentStatus === 'alpha'
-                            : $attendance->is_open && $studentStatus === 'alpha';
-                    @endphp
+    @if($attendances->isEmpty())
+        <div class="empty-state">
+            <div style="font-size: 34px; margin-bottom: 8px;">✅</div>
 
-                    <tr>
-                        <td>
-                            <strong>Dibuka:</strong>
-                            {{ $attendance->opened_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
-                            <br>
-                            <strong>Ditutup:</strong>
-                            {{ $attendance->closed_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
-                        </td>
-                        <td>
-                            <span class="badge {{ $sessionStatusClass }}">{{ $sessionStatus }}</span>
-                        </td>
-                        <td>
-                            <span class="badge {{ $studentStatusClass }}">{{ $studentStatusLabel }}</span>
-                        </td>
-                        <td>
-                            {{ $record?->checked_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
-                        </td>
-                        <td>
-                            @if($canCheckIn)
-                                <form action="{{ route('student.attendances.check-in', $attendance) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="btn btn-primary btn-sm">Check-in</button>
-                                </form>
-                            @elseif($studentStatus === 'hadir')
-                                <span class="badge badge-green">Sudah check-in</span>
-                            @elseif($studentStatus === 'izin')
-                                <span class="badge badge-blue">Izin</span>
-                            @else
-                                <span class="badge">Tidak tersedia</span>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="5">Belum ada sesi absensi untuk kelas ini.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+            <h3 class="empty-state-title">
+                Belum ada sesi absensi
+            </h3>
 
-    <div class="mt-5">
-        {{ $attendances->links() }}
-    </div>
+            <p class="empty-state-text">
+                Belum ada sesi absensi untuk kelas ini.
+            </p>
+        </div>
+    @else
+        <div class="table-card">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu Absensi</th>
+                            <th>Status Sesi</th>
+                            <th>Status Kamu</th>
+                            <th>Check-in</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach($attendances as $attendance)
+                            @php
+                                $record = $attendance->records->first();
+                                $studentStatus = $record?->status ?? 'alpha';
+
+                                $studentStatusLabel = match ($studentStatus) {
+                                    'hadir' => 'Hadir',
+                                    'izin' => 'Izin',
+                                    default => 'Alpha',
+                                };
+
+                                $studentStatusClass = match ($studentStatus) {
+                                    'hadir' => 'status-success',
+                                    'izin' => 'status-info',
+                                    default => 'status-danger',
+                                };
+
+                                $sessionStatus = method_exists($attendance, 'statusLabel')
+                                    ? $attendance->statusLabel()
+                                    : ($attendance->is_open ? 'Sedang Dibuka' : 'Ditutup');
+
+                                $rawSessionStatusClass = method_exists($attendance, 'statusBadgeClass')
+                                    ? $attendance->statusBadgeClass()
+                                    : ($attendance->is_open ? 'badge-green' : 'badge-red');
+
+                                $sessionStatusClass = match ($rawSessionStatusClass) {
+                                    'badge-green' => 'status-success',
+                                    'badge-blue' => 'status-info',
+                                    'badge-red' => 'status-danger',
+                                    'badge-yellow' => 'status-warning',
+                                    default => 'status-muted',
+                                };
+
+                                $canCheckIn = method_exists($attendance, 'isWithinOpenWindow')
+                                    ? $attendance->isWithinOpenWindow() && $studentStatus === 'alpha'
+                                    : $attendance->is_open && $studentStatus === 'alpha';
+                            @endphp
+
+                            <tr>
+                                <td>
+                                    <div class="item-meta" style="margin-top: 0;">
+                                        <strong>Dibuka:</strong>
+                                        {{ $attendance->opened_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
+                                        <br>
+                                        <strong>Ditutup:</strong>
+                                        {{ $attendance->closed_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="status-pill {{ $sessionStatusClass }}">
+                                        {{ $sessionStatus }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="status-pill {{ $studentStatusClass }}">
+                                        {{ $studentStatusLabel }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="item-meta" style="margin-top: 0;">
+                                        {{ $record?->checked_at?->timezone($timezone)->format('d M Y H:i') ?? '-' }} WIB
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if($canCheckIn)
+                                        <form action="{{ route('student.attendances.check-in', $attendance) }}" method="POST">
+                                            @csrf
+
+                                            <button type="submit" class="btn btn-primary btn-sm">
+                                                Check-in
+                                            </button>
+                                        </form>
+                                    @elseif($studentStatus === 'hadir')
+                                        <span class="status-pill status-success">
+                                            Sudah check-in
+                                        </span>
+                                    @elseif($studentStatus === 'izin')
+                                        <span class="status-pill status-info">
+                                            Izin
+                                        </span>
+                                    @else
+                                        <span class="status-pill status-muted">
+                                            Tidak tersedia
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+            {{ $attendances->links() }}
+        </div>
+    @endif
 </section>
+
+<style>
+    @media (max-width: 1100px) {
+        .grid.grid-3 > section[style*="grid-column"] {
+            grid-column: span 1 !important;
+        }
+    }
+</style>
 @endsection
