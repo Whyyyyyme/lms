@@ -21,7 +21,10 @@
         }
 
         body {
-            background: #edf2f6;
+            background:
+                radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.22), transparent 34%),
+                radial-gradient(circle at 85% 75%, rgba(239, 63, 70, 0.20), transparent 36%),
+                linear-gradient(135deg, #eef4ff 0%, #f8f1f5 45%, #f4f7ff 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -53,8 +56,14 @@
             inset: 0;
             z-index: 1;
             pointer-events: none;
-            background: rgba(237, 242, 246, 0.30);
-            backdrop-filter: blur(2px);
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(11, 21, 64, 0.18),
+                    rgba(255, 255, 255, 0.16),
+                    rgba(239, 63, 70, 0.12)
+                );
+            backdrop-filter: blur(3px) saturate(120%);
         }
 
         .login-wrapper {
@@ -63,10 +72,19 @@
             width: 100%;
             max-width: 1220px;
             min-height: 700px;
-            background: rgba(243, 247, 250, 0.72);
-            backdrop-filter: blur(12px);
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(255, 255, 255, 0.50),
+                    rgba(232, 238, 255, 0.44),
+                    rgba(255, 230, 235, 0.34)
+                );
+            backdrop-filter: blur(22px) saturate(145%);
+            border: 1px solid rgba(255, 255, 255, 0.62);
             border-radius: 36px;
-            box-shadow: 0 18px 70px rgba(17, 24, 39, 0.18);
+            box-shadow:
+                0 28px 80px rgba(15, 23, 42, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.65);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -77,8 +95,17 @@
             width: 100%;
             max-width: 1040px;
             min-height: 560px;
-            background: rgba(248, 251, 253, 0.82);
-            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.20);
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(255, 255, 255, 0.70),
+                    rgba(235, 241, 255, 0.58),
+                    rgba(255, 237, 241, 0.48)
+                );
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            box-shadow:
+                0 18px 55px rgba(15, 23, 42, 0.20),
+                inset 0 1px 0 rgba(255, 255, 255, 0.72);
             display: grid;
             grid-template-columns: 430px 1fr;
             overflow: hidden;
@@ -173,11 +200,19 @@
         }
 
         .right-panel {
-            background: rgba(244, 248, 251, 0.72);
+            background:
+                radial-gradient(circle at top right, rgba(239, 63, 70, 0.11), transparent 34%),
+                radial-gradient(circle at bottom left, rgba(36, 24, 117, 0.13), transparent 38%),
+                linear-gradient(
+                    145deg,
+                    rgba(255, 255, 255, 0.72),
+                    rgba(238, 243, 255, 0.62),
+                    rgba(255, 239, 243, 0.50)
+                );
             position: relative;
             padding: 92px 88px 70px;
             overflow: hidden;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(14px) saturate(135%);
         }
 
         .right-panel::after {
@@ -243,22 +278,29 @@
         .form-group input {
             width: 100%;
             height: 54px;
-            border: none;
+            border: 1px solid rgba(79, 70, 229, 0.10);
             outline: none;
             border-radius: 999px;
-            background: rgba(233, 241, 255, 0.92);
-            color: #000000;
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(255, 255, 255, 0.86),
+                    rgba(232, 239, 255, 0.78)
+                );
+            color: #111827;
             padding: 0 24px;
             font-size: 16px;
             box-shadow:
-                inset 0 2px 4px rgba(15, 23, 42, 0.08),
-                0 3px 8px rgba(15, 23, 42, 0.08);
+                inset 0 1px 3px rgba(15, 23, 42, 0.08),
+                0 8px 20px rgba(36, 24, 117, 0.08);
         }
 
         .form-group input:focus {
+            border-color: rgba(36, 24, 117, 0.45);
+            background: rgba(255, 255, 255, 0.92);
             box-shadow:
-                0 0 0 2px rgba(36, 24, 117, 0.22),
-                0 6px 16px rgba(15, 23, 42, 0.10);
+                0 0 0 4px rgba(36, 24, 117, 0.12),
+                0 12px 26px rgba(15, 23, 42, 0.12);
         }
 
         .forgot-row {
@@ -280,7 +322,7 @@
         .btn-login,
         .btn-register {
             width: 100%;
-            height: 58px;
+            height: 45px;
             border: none;
             border-radius: 999px;
             font-size: 18px;
@@ -315,7 +357,6 @@
             background: #1c125e;
             transform: translateY(-1px);
         }
-
         .alert {
             position: relative;
             z-index: 2;
@@ -512,7 +553,7 @@
             |--------------------------------------------------------------------------
             */
             const pageBgCanvas = document.getElementById('pageBgRiveCanvas');
-            const pageBgRiveFile = "{{ asset('rive/7969-15341-color-morph.riv') }}";
+            const pageBgRiveFile = "{{ asset('rive/12653-23995-breathing-animation.riv') }}";
 
             let pageBgAnimation = null;
 
@@ -545,7 +586,7 @@
                     },
 
                     onLoadError: function () {
-                        console.error('Background Rive gagal dimuat. Cek file: public/rive/7969-15341-color-morph.riv');
+                        console.error('Background Rive gagal dimuat. Cek file: public/rive/12653-23995-breathing-animation.riv');
                     }
                 });
             }
@@ -583,6 +624,7 @@
             }
 
             let riveAnimation = null;
+            let activeStateMachine = null;
 
             riveAnimation = new rive.Rive({
                 src: riveFile,
@@ -607,18 +649,150 @@
                     console.log('Login state machines:', stateMachines);
 
                     if (stateMachines.length > 0) {
-                        riveAnimation.play(stateMachines[0]);
+                        activeStateMachine = stateMachines[0];
+                        riveAnimation.play(activeStateMachine);
                     } else if (animations.length > 0) {
                         riveAnimation.play(animations[0]);
                     } else {
                         showError('File Rive terbaca, tetapi tidak ada animation/state machine yang ditemukan.');
                     }
+
+                    enableFullPageCursorTracking();
                 },
 
                 onLoadError: function () {
                     showError('File Rive gagal dimuat. Cek nama file di folder public/rive.');
                 }
             });
+
+            /*
+            |--------------------------------------------------------------------------
+            | CURSOR TRACKING SELURUH HALAMAN
+            |--------------------------------------------------------------------------
+            | Tujuan:
+            | - Ukuran animasi tetap sama.
+            | - Canvas tetap berada di panel kiri.
+            | - Tetapi gerakan mouse dari seluruh website dikirim ke canvas Rive.
+            |--------------------------------------------------------------------------
+            */
+            function enableFullPageCursorTracking() {
+                let latestPointer = null;
+                let animationFrame = null;
+                let forwardingToCanvas = false;
+
+                function clamp(value, min, max) {
+                    return Math.min(Math.max(value, min), max);
+                }
+
+                function forwardPointerToRive(event) {
+                    if (!canvas || !riveAnimation) return;
+
+                    const rect = canvas.getBoundingClientRect();
+
+                    if (rect.width <= 0 || rect.height <= 0) return;
+
+                    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+                    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Mapping posisi cursor global ke area canvas
+                    |--------------------------------------------------------------------------
+                    | Contoh:
+                    | - Cursor di kiri layar  -> mata melihat ke kiri
+                    | - Cursor di kanan layar -> mata melihat ke kanan
+                    | - Cursor di atas layar  -> mata melihat ke atas
+                    | - Cursor di bawah layar -> mata melihat ke bawah
+                    |--------------------------------------------------------------------------
+                    */
+                    const ratioX = clamp(event.clientX / viewportWidth, 0, 1);
+                    const ratioY = clamp(event.clientY / viewportHeight, 0, 1);
+
+                    const mappedClientX = rect.left + (ratioX * rect.width);
+                    const mappedClientY = rect.top + (ratioY * rect.height);
+
+                    forwardingToCanvas = true;
+
+                    try {
+                        const pointerEvent = new PointerEvent('pointermove', {
+                            bubbles: true,
+                            cancelable: true,
+                            pointerId: 1,
+                            pointerType: 'mouse',
+                            isPrimary: true,
+                            clientX: mappedClientX,
+                            clientY: mappedClientY,
+                            screenX: mappedClientX,
+                            screenY: mappedClientY
+                        });
+
+                        canvas.dispatchEvent(pointerEvent);
+                    } catch (error) {
+                        const mouseEvent = new MouseEvent('mousemove', {
+                            bubbles: true,
+                            cancelable: true,
+                            clientX: mappedClientX,
+                            clientY: mappedClientY,
+                            screenX: mappedClientX,
+                            screenY: mappedClientY
+                        });
+
+                        canvas.dispatchEvent(mouseEvent);
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Fallback tambahan untuk beberapa file Rive
+                    |--------------------------------------------------------------------------
+                    | Beberapa runtime membaca mousemove, bukan pointermove.
+                    |--------------------------------------------------------------------------
+                    */
+                    const fallbackMouseEvent = new MouseEvent('mousemove', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: mappedClientX,
+                        clientY: mappedClientY,
+                        screenX: mappedClientX,
+                        screenY: mappedClientY
+                    });
+
+                    canvas.dispatchEvent(fallbackMouseEvent);
+
+                    forwardingToCanvas = false;
+                }
+
+                document.addEventListener('pointermove', function (event) {
+                    if (forwardingToCanvas) return;
+
+                    latestPointer = event;
+
+                    if (animationFrame) return;
+
+                    animationFrame = requestAnimationFrame(function () {
+                        if (latestPointer) {
+                            forwardPointerToRive(latestPointer);
+                        }
+
+                        animationFrame = null;
+                    });
+                }, {
+                    passive: true
+                });
+
+                /*
+                |--------------------------------------------------------------------------
+                | Saat pertama halaman dibuka, arahkan karakter ke tengah halaman
+                |--------------------------------------------------------------------------
+                */
+                setTimeout(function () {
+                    const centerEvent = {
+                        clientX: window.innerWidth / 2,
+                        clientY: window.innerHeight / 2
+                    };
+
+                    forwardPointerToRive(centerEvent);
+                }, 300);
+            }
 
             window.addEventListener('resize', function () {
                 if (pageBgAnimation) {
