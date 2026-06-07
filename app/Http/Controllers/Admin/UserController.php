@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\UsesCaseInsensitiveSearch;
+use App\Models\AcademicYear;
 use App\Models\StudySemester;
 use App\Models\User;
 use App\Notifications\StudentAccountActivated;
@@ -338,6 +339,12 @@ class UserController extends Controller
             if (! $user->hasRole('mahasiswa')) {
                 $user->syncRoles(['mahasiswa']);
             }
+
+            $this->syncStudentSemester(
+                $user->fresh(),
+                'mahasiswa',
+                $user->study_semester_id ? (int) $user->study_semester_id : null
+            );
         });
 
         $this->sendStudentActivatedNotification($user->fresh());
@@ -368,12 +375,14 @@ class UserController extends Controller
             return;
         }
 
+        $activeAcademicYearId = $this->activeAcademicYearId();
+
         $user->semesterEnrollments()->update(['is_active' => false]);
 
         $user->semesterEnrollments()->updateOrCreate(
             [
                 'study_semester_id' => $studySemesterId,
-                'academic_year_id' => null,
+                'academic_year_id' => $activeAcademicYearId,
             ],
             [
                 'is_active' => true,
@@ -382,7 +391,16 @@ class UserController extends Controller
         );
 
         // Mahasiswa tidak lagi dikunci hanya ke satu kelas utama.
-        // Akses materi/tugas/absensi dihitung dari study_semester_id + student_group.
+        // Akses aktif dihitung dari study_semester_id + student_group.
+        // Akses riwayat dihitung dari enrollment bertahun-akademik/pivot kelas.
+    }
+
+    private function activeAcademicYearId(): ?int
+    {
+        return AcademicYear::query()
+            ->where('is_active', true)
+            ->latest('id')
+            ->value('id');
     }
 
     private function sendStudentActivatedNotification(?User $user): void

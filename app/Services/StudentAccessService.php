@@ -11,11 +11,12 @@ use Throwable;
 class StudentAccessService
 {
     /**
-     * Ambil ID kelas aktif yang boleh diakses mahasiswa.
+     * Ambil ID kelas yang boleh diakses mahasiswa.
      *
-     * Default method ini sengaja hanya mengembalikan kelas dari tahun akademik aktif.
-     * Untuk riwayat, gunakan archivedClassIdsForStudent().
-     * Untuk akses baca semua data yang pernah boleh dilihat, gunakan allClassIdsForStudent().
+     * true  = kelas aktif dari tahun akademik aktif.
+     * false = riwayat yang akurat: hanya kelas yang benar-benar pernah diikuti
+     *         melalui enrollment bertahun-akademik, pivot class_students, atau users.kelas_id.
+     * null  = gabungan aktif + riwayat.
      *
      * @return array<int>
      */
@@ -23,6 +24,21 @@ class StudentAccessService
     {
         if (! $student) {
             return [];
+        }
+
+        /**
+         * Jangan hitung "semua" dari rule semester umum, karena itu bisa membuat
+         * riwayat terlalu luas. Gabungkan hasil aktif + hasil riwayat yang sudah
+         * difilter secara terpisah.
+         */
+        if ($onlyActiveAcademicYear === null) {
+            return collect()
+                ->merge($this->classIdsForStudent($student, true))
+                ->merge($this->classIdsForStudent($student, false))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
         }
 
         $classIds = collect();
@@ -38,10 +54,13 @@ class StudentAccessService
         /**
          * 1. Akses otomatis berdasarkan semester + rombel mahasiswa.
          *
-         * Catatan penting:
-         * - Kelas aktif memakai tahun akademik aktif.
-         * - Kelas riwayat memakai tahun akademik nonaktif.
-         * - Jika enrollment menyimpan academic_year_id, aksesnya ikut dipersempit ke tahun tersebut.
+         * Perbedaan penting:
+         * - Kelas aktif masih boleh memakai semester aktif dari profil mahasiswa.
+         * - Kelas riwayat TIDAK boleh memakai semester aktif profil saja, karena
+         *   itu bisa membuat mahasiswa melihat semua kelas lama dengan semester
+         *   dan rombel yang sama.
+         * - Kelas riwayat hanya memakai enrollment yang punya academic_year_id,
+         *   sehingga aksesnya terkait tahun akademik yang benar-benar pernah diikuti.
          */
         if ($semesterRules->isNotEmpty()) {
             $semesterClasses = PraktikumClass::query()
@@ -76,7 +95,7 @@ class StudentAccessService
 
         /**
          * 2. Akses manual dari pivot class_students.
-         * Ini dipertahankan agar data lama/manual tetap jalan.
+         * Ini dianggap akurat karena mahasiswa memang ditempelkan ke kelas tertentu.
          */
         if (method_exists($student, 'kelasDiikuti')) {
             $classIds = $classIds->merge($student->kelasDiikuti()->pluck('classes.id'));
@@ -84,7 +103,7 @@ class StudentAccessService
 
         /**
          * 3. Akses legacy dari users.kelas_id.
-         * Ini juga dipertahankan agar data lama tetap kompatibel.
+         * Ini juga akurat karena menunjuk ke satu kelas spesifik.
          */
         if ($student->kelas_id) {
             $classIds->push($student->kelas_id);
@@ -234,12 +253,40 @@ class StudentAccessService
     /**
      * Buat daftar aturan semester yang boleh dibaca mahasiswa.
      *
-     * Untuk kelas aktif, yang dipakai adalah semester aktif mahasiswa + enrollment aktif.
-     * Untuk riwayat/semua, enrollment lama juga dipakai agar materi dan tugas lama tetap bisa dibaca.
+     * Kelas aktif:
+     * - memakai semester aktif dari profil mahasiswa;
+     * - memakai enrollment aktif jika ada.
+     *
+     * Kelas riwayat:
+     * - hanya memakai enrollment yang memiliki academic_year_id;
+     * - tidak memakai users.study_semester_id saja, supaya riwayat tidak terlalu luas.
      */
     private function semesterAccessRulesForStudent(User $student, ?bool $onlyActiveAcademicYear): Collection
     {
         $rules = collect();
+
+        if ($onlyActiveAcademicYear === false) {
+            if (! method_exists($student, 'semesterEnrollments')) {
+                return $rules;
+            }
+
+            $student->semesterEnrollments()
+                ->select(['study_semester_id', 'academic_year_id', 'is_active'])
+                ->whereNotNull('academic_year_id')
+                ->get()
+                ->each(function ($enrollment) use ($rules): void {
+                    if (! $enrollment->study_semester_id || ! $enrollment->academic_year_id) {
+                        return;
+                    }
+
+                    $rules->push([
+                        'study_semester_id' => (int) $enrollment->study_semester_id,
+                        'academic_year_id' => (int) $enrollment->academic_year_id,
+                    ]);
+                });
+
+            return $this->uniqueSemesterRules($rules);
+        }
 
         if ($student->study_semester_id) {
             $rules->push([
@@ -268,6 +315,11 @@ class StudentAccessService
             });
         }
 
+        return $this->uniqueSemesterRules($rules);
+    }
+
+    private function uniqueSemesterRules(Collection $rules): Collection
+    {
         return $rules
             ->filter(fn ($rule) => ! empty($rule['study_semester_id']))
             ->unique(fn ($rule) => ((int) $rule['study_semester_id']) . ':' . ($rule['academic_year_id'] ?? 'all'))

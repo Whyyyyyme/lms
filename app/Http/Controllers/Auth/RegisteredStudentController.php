@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
 use App\Models\StudySemester;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -119,7 +120,7 @@ class RegisteredStudentController extends Controller
             if (method_exists($student, 'semesterEnrollments')) {
                 $student->semesterEnrollments()->create([
                     'study_semester_id' => $validated['study_semester_id'],
-                    'academic_year_id' => null,
+                    'academic_year_id' => $this->activeAcademicYearId(),
                     'is_active' => true,
                     'enrolled_at' => now(),
                 ]);
@@ -129,5 +130,13 @@ class RegisteredStudentController extends Controller
         return redirect()
             ->route('login')
             ->with('status', 'Pendaftaran berhasil. Akun kamu masih menunggu verifikasi admin sebelum bisa login.');
+    }
+
+    private function activeAcademicYearId(): ?int
+    {
+        return AcademicYear::query()
+            ->where('is_active', true)
+            ->latest('id')
+            ->value('id');
     }
 }

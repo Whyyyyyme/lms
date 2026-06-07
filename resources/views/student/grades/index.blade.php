@@ -6,8 +6,11 @@
 @php
     use Illuminate\Support\Facades\Route;
 
-    $averageScore = $averageScore ?? 0;
+    $averageScore = $averageScore ?? null;
     $submissions = $submissions ?? collect();
+    $totalSubmissions = $totalSubmissions ?? (method_exists($submissions, 'total') ? $submissions->total() : $submissions->count());
+    $gradedSubmissions = $gradedSubmissions ?? 0;
+    $archivedClassesCount = $archivedClassesCount ?? 0;
 
     $dashboardUrl = Route::has('student.dashboard')
         ? route('student.dashboard')
@@ -25,7 +28,7 @@
 
     <p>
         Pantau nilai tugas praktikum dan feedback dari asisten.
-        Nilai akan muncul setelah submission kamu diperiksa dan dinilai.
+        Halaman ini menampilkan nilai dari mata kuliah yang masih aktif.
     </p>
 
     <div class="hero-actions">
@@ -38,37 +41,43 @@
                 📚 Mata Kuliah Saya
             </a>
         @endif
+
+        @if(Route::has('student.grades.history'))
+            <a href="{{ route('student.grades.history') }}" class="btn">
+                🕘 Riwayat Nilai{{ $archivedClassesCount > 0 ? ' ('.$archivedClassesCount.')' : '' }}
+            </a>
+        @endif
     </div>
 </section>
 
 <div class="grid grid-3" style="margin-bottom: 18px;">
     <div class="stat-card">
-        <div class="stat-label">Rata-rata Nilai</div>
+        <div class="stat-label">Rata-rata Nilai Aktif</div>
         <div class="stat-value">
-            {{ number_format((float) $averageScore, 2) }}
+            {{ $averageScore !== null ? number_format((float) $averageScore, 2) : '-' }}
         </div>
         <div class="stat-note">
-            Rata-rata nilai dari submission yang sudah dinilai.
+            Rata-rata nilai dari submission kelas aktif yang sudah dinilai.
         </div>
     </div>
 
     <div class="stat-card">
         <div class="stat-label">Total Submission</div>
         <div class="stat-value">
-            {{ method_exists($submissions, 'total') ? $submissions->total() : $submissions->count() }}
+            {{ $totalSubmissions }}
         </div>
         <div class="stat-note">
-            Total submission tugas yang tercatat.
+            Total submission tugas pada mata kuliah aktif.
         </div>
     </div>
 
     <div class="stat-card">
-        <div class="stat-label">Status</div>
-        <div class="stat-value" style="font-size: 22px;">
-            Nilai Praktikum
+        <div class="stat-label">Sudah Dinilai</div>
+        <div class="stat-value">
+            {{ $gradedSubmissions }}
         </div>
         <div class="stat-note">
-            Feedback ditampilkan jika sudah diberikan oleh asisten.
+            Submission yang sudah memiliki skor dari asisten.
         </div>
     </div>
 </div>
@@ -76,9 +85,9 @@
 <section class="card">
     <div class="section-header">
         <div>
-            <h2 class="section-title">Daftar Nilai Tugas</h2>
+            <h2 class="section-title">Daftar Nilai Tugas Aktif</h2>
             <div class="section-subtitle">
-                Nilai ditampilkan berdasarkan submission tugas yang sudah kamu kumpulkan.
+                Nilai ditampilkan berdasarkan submission tugas dari kelas praktikum aktif yang dapat kamu akses.
             </div>
         </div>
     </div>
@@ -88,12 +97,20 @@
             <div style="font-size: 34px; margin-bottom: 8px;">⭐</div>
 
             <h3 class="empty-state-title">
-                Belum ada nilai
+                Belum ada nilai aktif
             </h3>
 
             <p class="empty-state-text">
-                Nilai akan muncul setelah kamu mengumpulkan tugas dan asisten melakukan penilaian.
+                Nilai aktif akan muncul setelah kamu mengumpulkan tugas pada mata kuliah aktif dan asisten melakukan penilaian.
             </p>
+
+            @if($archivedClassesCount > 0 && Route::has('student.grades.history'))
+                <div style="margin-top: 14px;">
+                    <a href="{{ route('student.grades.history') }}" class="btn btn-primary">
+                        Lihat Riwayat Nilai
+                    </a>
+                </div>
+            @endif
         </div>
     @else
         <div class="table-card">
@@ -112,13 +129,16 @@
                         @foreach($submissions as $submission)
                             @php
                                 $isGraded = $submission->score !== null;
+                                $assignment = $submission->assignment;
+                                $class = $assignment?->kelas;
+                                $course = $class?->course;
                             @endphp
 
                             <tr>
                                 <td>
                                     <div style="display: grid; gap: 5px;">
                                         <strong>
-                                            {{ $submission->assignment?->title ?? 'Tugas tidak ditemukan' }}
+                                            {{ $assignment?->title ?? 'Tugas tidak ditemukan' }}
                                         </strong>
 
                                         @if($submission->submitted_at)
@@ -133,11 +153,11 @@
                                 <td>
                                     <div style="display: grid; gap: 5px;">
                                         <strong>
-                                            {{ $submission->assignment?->kelas?->course?->name ?? 'Mata kuliah tidak ditemukan' }}
+                                            {{ $course?->name ?? 'Mata kuliah tidak ditemukan' }}
                                         </strong>
 
                                         <span class="item-meta" style="margin-top: 0;">
-                                            {{ $submission->assignment?->kelas?->name ?? 'Kelas tidak ditemukan' }}
+                                            {{ $class?->name ?? 'Kelas tidak ditemukan' }}
                                         </span>
                                     </div>
                                 </td>
@@ -145,7 +165,7 @@
                                 <td>
                                     @if($isGraded)
                                         <span class="status-pill status-success">
-                                            {{ $submission->score }}
+                                            {{ number_format((float) $submission->score, 2) }}
                                         </span>
                                     @else
                                         <span class="status-pill status-warning">
