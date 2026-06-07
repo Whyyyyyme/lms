@@ -152,7 +152,7 @@
                                         <a
                                             href="{{ $event['url'] ?: '#' }}"
                                             class="schedule-event schedule-event-{{ $eventVariant }}"
-                                            title="{{ $event['title'] }} - {{ $event['subtitle'] }}"
+                                            data-tooltip="{{ $event['title'] }}{{ $event['time'] ? ' • '.$event['time'] : '' }} • {{ $event['badge'] }} • {{ $event['subtitle'] }}"
                                         >
                                             <div class="schedule-event-title">
                                                 @if($event['time'])
@@ -290,6 +290,7 @@
     .schedule-scroll {
         width: 100%;
         overflow-x: auto;
+        padding-bottom: 10px;
     }
 
     .schedule-calendar {
@@ -325,10 +326,12 @@
     }
 
     .schedule-day {
+        min-width: 0;
         min-height: 150px;
         padding: 12px;
         background: #ffffff;
         border-right: 1px solid var(--line);
+        position: relative;
     }
 
     .schedule-day:last-child {
@@ -368,29 +371,51 @@
     .schedule-events {
         display: grid;
         gap: 7px;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .schedule-event {
         display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         padding: 8px 9px;
         border-radius: 12px;
         border: 1px solid var(--line);
         font-size: 11px;
         font-weight: 800;
         line-height: 1.35;
-        transition: 0.16s ease;
+        text-decoration: none;
+        overflow: hidden;
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease,
+            filter 0.18s ease;
     }
 
     .schedule-event:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        transform: translateY(-2px) scale(1.015);
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+        filter: saturate(1.06);
+        z-index: 5;
     }
 
     .schedule-event-title,
     .schedule-event-meta {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .schedule-event-title span,
+    .schedule-event-meta span {
+        min-width: 0;
     }
 
     .schedule-event-meta {
@@ -434,6 +459,10 @@
         color: #475569;
         font-size: 11px;
         font-weight: 900;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     @media (max-width: 1100px) {
@@ -449,5 +478,82 @@
             margin-top: 12px;
         }
     }
+
+        .calendar-hover-tooltip {
+        position: fixed;
+        z-index: 99999;
+        max-width: 360px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.96);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.45;
+        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.28);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(8px) scale(0.96);
+        transition:
+            opacity 0.14s ease,
+            transform 0.14s ease;
+        white-space: normal;
+    }
+
+    .calendar-hover-tooltip.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    .schedule-event:hover {
+        transform: translateY(-2px) scale(1.025);
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
+        filter: saturate(1.08);
+        z-index: 20;
+    }
 </style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'calendar-hover-tooltip';
+        document.body.appendChild(tooltip);
+
+        function moveTooltip(event) {
+            const offset = 14;
+            const tooltipWidth = tooltip.offsetWidth || 320;
+            const tooltipHeight = tooltip.offsetHeight || 60;
+
+            let left = event.clientX + offset;
+            let top = event.clientY + offset;
+
+            if (left + tooltipWidth > window.innerWidth - 12) {
+                left = event.clientX - tooltipWidth - offset;
+            }
+
+            if (top + tooltipHeight > window.innerHeight - 12) {
+                top = event.clientY - tooltipHeight - offset;
+            }
+
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        }
+
+        document.querySelectorAll('.schedule-event[data-tooltip]').forEach(function (eventCard) {
+            eventCard.addEventListener('mouseenter', function (event) {
+                tooltip.textContent = eventCard.dataset.tooltip;
+                tooltip.classList.add('is-visible');
+                moveTooltip(event);
+            });
+
+            eventCard.addEventListener('mousemove', function (event) {
+                moveTooltip(event);
+            });
+
+            eventCard.addEventListener('mouseleave', function () {
+                tooltip.classList.remove('is-visible');
+            });
+        });
+    });
+</script>
+
 @endsection
